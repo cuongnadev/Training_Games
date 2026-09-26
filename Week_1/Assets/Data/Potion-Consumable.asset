@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Potion-Consumable
   m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
   id: potion_hp
-  itemName: "Thu\u1ED1c HP"
+  itemName: Potion HP
   icon: {fileID: 6218059327393886658, guid: 0d6a668ff2cef7b4aa457fbb50466f5c, type: 3}
   type: 0
   maxStack: 99
-  description: "H\u1ED3i 50 HP cho nh\xE2n v\u1EADt."
+  description: Restores 50 HP to the character.

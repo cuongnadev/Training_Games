@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Hammer-Equipment
   m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
   id: tool_hammer
-  itemName: "B\xFAa S\u1EAFt"
+  itemName: Hammer
   icon: {fileID: 4301844918096825189, guid: f4699f9a14abc2544a55ae3142d2182a, type: 3}
   type: 1
   maxStack: 1
-  description: "C\xF4ng c\u1EE5 khai th\xE1c c\u01A1 b\u1EA3n."
+  description: Basic mining tools.

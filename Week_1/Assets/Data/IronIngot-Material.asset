@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: IronIngot-Material
   m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
   id: material_Iron_ingot
-  itemName: "Th\u1ECFi S\u1EAFt"
+  itemName: Iron Ingot
   icon: {fileID: -4285704637475842466, guid: 5693842530845b746ba257934753e0c3, type: 3}
   type: 2
   maxStack: 99
-  description: "Nguy\xEAn li\u1EC7u d\xF9ng \u0111\u1EC3 ch\u1EBF t\u1EA1o."
+  description: Materials used in its manufacture.

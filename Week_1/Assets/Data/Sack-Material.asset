@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Sack-Material
   m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
   id: material_sack
-  itemName: "T\xFAi V\u1EA3i"
+  itemName: Sack
   icon: {fileID: -5615797662902086626, guid: d14e89d131621bc4ebf5829855e9c337, type: 3}
   type: 2
   maxStack: 50
-  description: "\u0110\u1EF1ng v\u1EADt ph\u1EA9m nh\u1ECF l\u1EBB."
+  description: For storing small items.

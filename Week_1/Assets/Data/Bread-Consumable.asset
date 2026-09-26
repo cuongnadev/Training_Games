@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Bread-Consumable
   m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
   id: food_bread
-  itemName: "B\xE1nh M\xEC"
+  itemName: Bread
   icon: {fileID: -4431494890709657585, guid: 2c92ac4beb5d0344d8c40d65a26f2d83, type: 3}
   type: 0
   maxStack: 20
-  description: "H\u1ED3i 20 HP khi \u0103n."
+  description: Restores 20 HP upon consuming.

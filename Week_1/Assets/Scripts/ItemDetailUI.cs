@@ -54,7 +54,7 @@ public class ItemDetailUI : MonoBehaviour
 
         if (itemIcon != null) itemIcon.sprite = data.icon;
         if (itemName != null) itemName.text = data.itemName;
-        if (itemType != null) itemType.text = "Loại:" + data.type.ToString();
+        if (itemType != null) itemType.text = "Type: " + data.type.ToString();
         // if (quantity != null) quantity.text = "SL: " + view.currentStack;
         if (description != null) description.text = data.description;
 
