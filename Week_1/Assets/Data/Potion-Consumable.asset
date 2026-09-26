@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4cf22d531317fe4ba4267defb32b62c, type: 3}
+  m_Name: Potion-Consumable
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDataSO
+  id: potion_hp
+  itemName: "Thu\u1ED1c HP"
+  icon: {fileID: 6218059327393886658, guid: 0d6a668ff2cef7b4aa457fbb50466f5c, type: 3}
+  type: 0
+  maxStack: 99
+  description: "H\u1ED3i 50 HP cho nh\xE2n v\u1EADt."
