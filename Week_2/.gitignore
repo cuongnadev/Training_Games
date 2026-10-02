@@ -1,0 +1,50 @@
+# ==========================================
+# Unity Ignored Folders (Rác tự sinh của Unity)
+# ==========================================
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# ==========================================
+# IDE & Code Editor Files (Rác của VS Code / Visual Studio)
+# ==========================================
+.vscode/
+.vs/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ==========================================
+# OS & System Junk
+# ==========================================
+.DS_Store
+Thumbs.db
+sysinfo.txt
+
+# ==========================================
+# Addressables & Builds
+# ==========================================
+*.apk
+*.aab
+*.unitypackage
+*.app
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
