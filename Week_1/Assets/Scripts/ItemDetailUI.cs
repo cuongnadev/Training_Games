@@ -40,11 +40,15 @@ public class ItemDetailUI : MonoBehaviour
     private void OnEnable()
     {
         ItemView.OnItemSelected += HandleItemSelected;
+        ItemView.OnItemChanged += HandleItemChanged;
+        ItemView.OnItemRemoved += HandleItemRemoved;
     }
 
     private void OnDisable()
     {
         ItemView.OnItemSelected -= HandleItemSelected;
+        ItemView.OnItemChanged -= HandleItemChanged;
+        ItemView.OnItemRemoved -= HandleItemRemoved;
     }
 
     private void HandleItemSelected(ItemDataSO data, ItemView view)
@@ -55,18 +59,21 @@ public class ItemDetailUI : MonoBehaviour
         if (itemIcon != null) itemIcon.sprite = data.icon;
         if (itemName != null) itemName.text = data.itemName;
         if (itemType != null) itemType.text = "Type: " + data.type.ToString();
-        // if (quantity != null) quantity.text = "SL: " + view.currentStack;
         if (description != null) description.text = data.description;
+        if (useButton != null) useButton.interactable = data.IsConsumable;
 
         UpdateQuantityUI();
-
-        if (useButton != null)
-        {
-            bool isConsumable = data.type.ToString().Equals("Consumable", System.StringComparison.OrdinalIgnoreCase);
-            useButton.interactable = isConsumable;
-        }
-
         ShowPanel();
+    }
+
+    private void HandleItemChanged(ItemView view)
+    {
+        if (view == currentView) UpdateQuantityUI();
+    }
+
+    private void HandleItemRemoved(ItemView view)
+    {
+        if (view == currentView) HidePanel();
     }
 
     private void UpdateQuantityUI()
@@ -77,8 +84,6 @@ public class ItemDetailUI : MonoBehaviour
         }
     }
 
-    // ----- USE -----
-
     private void OnUseClicked()
     {
         if (currentView == null)
@@ -87,28 +92,13 @@ public class ItemDetailUI : MonoBehaviour
             return;
         }
 
-        bool isDestroyed = currentView.UseOne();
-
-        if (isDestroyed)
-        {
-            HidePanel();
-        }
-        else
-        {
-            UpdateQuantityUI();
-        }
+        currentView.UseOne();
     }
-
-    // ----- DELETE -----
 
     private void OnDeleteClicked()
     {
-        if (currentView != null)
-        {
-            currentView.RemoveSelf();
-        }
-        
-        HidePanel();
+        if (currentView != null) currentView.RemoveSelf(); 
+        else HidePanel();
     }
 
     public void ShowPanel()
@@ -122,7 +112,8 @@ public class ItemDetailUI : MonoBehaviour
     {
         currentData = null;
         currentView = null;
-
+ 
+        if (canvasGroup == null) return; 
         canvasGroup.alpha = 0f;
         canvasGroup.interactable = false;
         canvasGroup.blocksRaycasts = false;

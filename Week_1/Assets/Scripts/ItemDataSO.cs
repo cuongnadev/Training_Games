@@ -14,7 +14,16 @@ public class ItemDataSO : ScriptableObject
     public string itemName;
     public Sprite icon;
     public ItemType type;
-    public int maxStack;
+    [Min(1)] public int maxStack = 1;
     [TextArea(2, 4)]
     public string description;
+
+    public int MaxStack => Mathf.Max(1, maxStack);
+
+    public bool IsConsumable => type == ItemType.Consumable;
+
+    private void OnValidate()
+    {
+        if (maxStack < 1) maxStack = 1;
+    }
 }

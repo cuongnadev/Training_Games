@@ -11,15 +11,18 @@ public class GridManager : MonoBehaviour
     public GameObject itemViewPrefab;
 
     [Header("Cấu hình Grid")]
-    public int slotCount = 16;
+    [Min(1)] public int slotCount = 16;
 
     [Header("Tùy chỉnh Random")]
     [Range(0.1f, 1f)] 
     public float fillRatio = 0.75f;
-    public int minStack = 1;
-    public int maxStack = 10;
+    [Min(1)] public int minStack = 1;
+    [Min(1)] public int maxStack = 10;
 
     private List<GameObject> spawnedSlots = new List<GameObject>();
+
+    private readonly List<Transform> slots = new List<Transform>();
+    private readonly List<int> indexBuffer = new List<int>();
 
     private void Start()
     {
@@ -28,58 +31,87 @@ public class GridManager : MonoBehaviour
 
     public void GenerateGrid()
     {
-        ClearGrid();
-
-        for (int i = 0; i < slotCount; i++)
+        if (slotPrefab == null || itemViewPrefab == null)
         {
-            GameObject slot = Instantiate(slotPrefab, transform);
-            spawnedSlots.Add(slot);
+            Debug.LogError("GridManager: chưa gán slotPrefab hoặc itemViewPrefab.", this);
+            return;
         }
+
+        EnsureSlots();
+        ClearItems();
 
         if (sampleItems == null || sampleItems.Count == 0) return;
 
-        int itemsToSpawn = Mathf.RoundToInt(slotCount * fillRatio);
+        int itemsToSpawn = Mathf.Min(Mathf.RoundToInt(slotCount * fillRatio), slotCount);
 
-        List<int> availableIndices = new List<int>();
-        for (int i = 0; i < slotCount; i++)
-        {
-            availableIndices.Add(i);
-        }
+        indexBuffer.Clear();
+
+        for (int i = 0; i < slotCount; i++) indexBuffer.Add(i);
 
         for (int i = 0; i < itemsToSpawn; i++)
         {
-            if (availableIndices.Count == 0) break;
-
-            int randomIndexInList = Random.Range(0, availableIndices.Count);
-            int targetSlotIndex = availableIndices[randomIndexInList];
-            availableIndices.RemoveAt(randomIndexInList);
-
-            ItemDataSO randomData = sampleItems[Random.Range(0, sampleItems.Count)];
-
-            GameObject itemObj = Instantiate(itemViewPrefab, spawnedSlots[targetSlotIndex].transform);
-            ItemView itemView = itemObj.GetComponent<ItemView>();
-
-            if (itemView != null)
-            {
-                bool isConsumable = randomData.type.ToString().Equals("Consumable", System.StringComparison.OrdinalIgnoreCase);
-                int randomStack = isConsumable ? Random.Range(minStack, maxStack + 1) : 1;
-
-                itemView.Setup(randomData, randomStack);
-            }
+            int j = Random.Range(i, slotCount);
+            (indexBuffer[i], indexBuffer[j]) = (indexBuffer[j], indexBuffer[i]);
+            SpawnItem(slots[indexBuffer[i]]);
         }
-    }
-
-    private void ClearGrid()
-    {
-        foreach (var slot in spawnedSlots)
-        {
-            if (slot != null) Destroy(slot);
-        }
-        spawnedSlots.Clear();
     }
 
     public void ResetGrid()
     {
         GenerateGrid();
+    }
+
+    private void EnsureSlots()
+    {
+        if (slots.Count == slotCount) return;
+ 
+        foreach (Transform s in slots)
+        {
+            if (s != null) Destroy(s.gameObject);
+        }
+        slots.Clear();
+ 
+        for (int i = 0; i < slotCount; i++)
+        {
+            slots.Add(Instantiate(slotPrefab, transform).transform);
+        }
+    }
+
+    private void ClearItems()
+    {
+        foreach (Transform slot in slots)
+        {
+            for (int i = slot.childCount - 1; i >= 0; i--)
+            {
+                Transform child = slot.GetChild(i);
+                child.SetParent(null, false);
+                Destroy(child.gameObject);
+            }
+        }
+    }
+
+    private void SpawnItem(Transform slot)
+    {
+        ItemDataSO data = sampleItems[Random.Range(0, sampleItems.Count)];
+        if (data == null) return;
+ 
+        GameObject obj = Instantiate(itemViewPrefab, slot);
+        ItemView view = obj.GetComponent<ItemView>();
+        if (view == null)
+        {
+            Debug.LogWarning("itemViewPrefab thiếu component ItemView.", itemViewPrefab);
+            Destroy(obj);
+            return;
+        }
+ 
+        int stack = 1;
+        if (data.IsConsumable)
+        {
+            int hi = Mathf.Min(maxStack, data.MaxStack);
+            int lo = Mathf.Min(minStack, hi);
+            stack = Random.Range(lo, hi + 1);
+        }
+ 
+        view.Setup(data, stack);
     }
 }

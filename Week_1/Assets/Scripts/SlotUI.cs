@@ -3,31 +3,40 @@ using UnityEngine.EventSystems;
 
 public class SlotUI : MonoBehaviour, IDropHandler
 {
+    public ItemView CurrentItem => GetComponentInChildren<ItemView>();
+
     public void OnDrop(PointerEventData eventData)
     {
         GameObject droppedObj = eventData.pointerDrag;
-        if (droppedObj == null) return;
+        if (droppedObj == null || !droppedObj.TryGetComponent(out ItemView dropped)) return;
+
+        Transform origin = dropped.OriginalParent;
 
         ItemView droppedItem = droppedObj.GetComponent<ItemView>();
-        if (droppedItem == null) return;
 
-        if (droppedObj.transform.parent == transform) return;
+        if (origin == transform) return;
 
-        Transform originalParent = droppedItem.OriginalParent;
+        ItemView existing = CurrentItem;
 
-        if (transform.childCount == 0)
+        if (existing == null)
         {
-            droppedObj.transform.SetParent(transform);
-        }
-        else
-        {
-            Transform existingItem = transform.GetChild(0);
-            existingItem.SetParent(originalParent);
-            existingItem.localPosition = Vector3.zero;
-
-            droppedObj.transform.SetParent(transform);
+            dropped.PlaceInto(transform);
+            return;
         }
 
-        droppedObj.transform.localPosition = Vector3.zero;
+        if (dropped.CanStackWith(existing) && existing.Space > 0)
+        {
+            bool wasSelected = dropped.IsSelected;
+            bool mergedAll = dropped.MergeInto(existing);
+ 
+            // Item đang chọn đã biến mất -> chuyển lựa chọn sang item nhận.
+            if (mergedAll && wasSelected) existing.Select();
+ 
+            // Gộp một phần: phần dư tự về slot cũ ở OnEndDrag.
+            return;
+        }
+
+        existing.PlaceInto(origin);
+        dropped.PlaceInto(transform);
     }
 }
