@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3184806477582756739}
   - component: {fileID: 4497423101575039821}
   - component: {fileID: 4551953225476526018}
+  - component: {fileID: 36381601112967996}
   m_Layer: 0
   m_Name: BottlePrefab
   m_TagString: Untagged
@@ -105,6 +106,18 @@ MonoBehaviour:
   - {fileID: 7729090514457614118}
   mouth: {fileID: 7210497265991553484}
   completeFx: {fileID: 6879758659499074632}
+--- !u!210 &36381601112967996
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2716158374700104895}
+  m_Enabled: 1
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 10
+  m_SortAtRoot: 0
 --- !u!1 &3481013922263670943
 GameObject:
   m_ObjectHideFlags: 0
