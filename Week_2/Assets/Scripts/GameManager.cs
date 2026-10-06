@@ -13,84 +13,109 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class GameManager : MonoBehaviour
 {
-    /// <summary>Initial layers of one bottle, ordered from bottom to top.</summary>
+    private const int ShakeVibrato = 25;
+    private const float ShakeRandomness = 0f;
+
+    /// <summary>Initial layers of one bottle as indexes into the color palette, ordered from bottom to top.</summary>
     [Serializable]
     public class BottleSetup { public int[] layers; }
 
     /// <summary>One completed pour, stored so it can be undone.</summary>
     private class Move
     {
-        public Bottle src, dst;
-        public int colorId, amount;
-        public readonly List<Bottle> newlyLocked = new List<Bottle>();
+        public Bottle Src;
+        public Bottle Dst;
+        public Color PouredColor;
+        public int Amount;
+        public readonly List<Bottle> NewlyLocked = new List<Bottle>();
     }
 
     [Header("Level")]
-    [SerializeField] private Bottle[] bottles;
-    [SerializeField] private Sprite[] palette;
-    [SerializeField] private BottleSetup[] setup;
+    [SerializeField] private Bottle[] _bottles;
+    [Tooltip("Water colors (set Alpha to 255). Setup layers reference these by index. Layer sprites must be white so the color is not tinted.")]
+    [SerializeField] private Color[] _colorPalette;
+    [SerializeField] private BottleSetup[] _setup;
 
     [Header("Input")]
     [Tooltip("Only these layers receive bottle clicks. Put bottles on a dedicated layer so other colliders cannot block them.")]
-    [SerializeField] private LayerMask bottleMask = ~0;
+    [SerializeField] private LayerMask _bottleMask = ~0;
 
     [Header("Invalid Target Behavior")]
     [Tooltip("On: clicking another bottle that has water switches the source bottle. Off: the source bottle shakes, plays the error sound and returns to its place.")]
-    [SerializeField] private bool switchSourceOnInvalid = true;
+    [SerializeField] private bool _switchSourceOnInvalid = true;
 
     [Header("Tween")]
-    [SerializeField] private float liftY = 0.6f;
-    [SerializeField] private float moveTime = 0.35f;
-    [SerializeField] private float tiltAngle = 70f;
-    [SerializeField] private float tiltTime = 0.3f;
-    [SerializeField] private float pourStep = 0.4f;
-    [SerializeField] private Vector2 mouthGap = new Vector2(0f, 0.6f);
+    [SerializeField] private float _liftY = 0.6f;
+    [SerializeField] private float _liftDuration = 0.2f;
+    [SerializeField] private float _moveTime = 0.35f;
+    [SerializeField] private float _tiltAngle = 70f;
+    [SerializeField] private float _tiltTime = 0.3f;
+    [SerializeField] private float _pourStep = 0.4f;
+    [Tooltip("Where the source mouth stops relative to the target mouth (world units). Y raises it above the target, X shifts it toward the source side.")]
+    [SerializeField] private Vector2 _pourOffset = new Vector2(0.2f, 0.6f);
+    [SerializeField] private float _shakeDuration = 0.3f;
+    [SerializeField] private float _shakeStrength = 0.12f;
+    [SerializeField] private float _returnDuration = 0.2f;
 
     [Header("Stream (optional)")]
-    [SerializeField] private LineRenderer stream;
-    [SerializeField] private Color[] streamColors;
+    [SerializeField] private LineRenderer _stream;
 
     [Header("Audio")]
-    [SerializeField] private AudioSource sfx;
-    [SerializeField] private AudioClip clickClip, pourClip, errorClip, completeClip, winClip;
+    [SerializeField] private AudioSource _sfx;
+    [SerializeField] private AudioClip _clickClip;
+    [SerializeField] private AudioClip _pourClip;
+    [SerializeField] private AudioClip _errorClip;
+    [SerializeField] private AudioClip _completeClip;
+    [SerializeField] private AudioClip _winClip;
 
     [Header("UI")]
-    [SerializeField] private GameObject winPopup;
+    [SerializeField] private GameObject _winPopup;
     [Tooltip("Optional: shown when no valid move is left. The player can press Undo or Reset to continue.")]
-    [SerializeField] private GameObject stuckPopup;
+    [SerializeField] private GameObject _stuckPopup;
+    [SerializeField] private float _winDelay = 0.8f;
+    [SerializeField] private float _popupDuration = 0.4f;
 
-    private Bottle selected;
-    private bool isBusy;     // An animation is running; input is ignored.
-    private bool won;
-    private bool streaming;
-    private Camera cam;
+    private Bottle _selected;
+    private bool _isBusy;     // An animation is running; input is ignored.
+    private bool _won;
+    private bool _streaming;
+    private Camera _cam;
 
-    private readonly Stack<Move> history = new Stack<Move>();
-    private readonly Collider2D[] hitBuffer = new Collider2D[8];
-    private ContactFilter2D hitFilter;
-    private int[] totals;    // Layer count per color id, reused to avoid allocations.
+    private readonly Stack<Move> _history = new Stack<Move>();
+    private readonly List<Color> _scratchColors = new List<Color>(Bottle.Capacity);
+    private readonly Collider2D[] _hitBuffer = new Collider2D[8];
+    private ContactFilter2D _hitFilter;
 
     private void Awake()
     {
-        hitFilter = new ContactFilter2D { useTriggers = true };
-        hitFilter.SetLayerMask(bottleMask);
+        _hitFilter = new ContactFilter2D { useTriggers = true };
+        _hitFilter.SetLayerMask(_bottleMask);
+
+        if (_sfx == null) _sfx = GetComponent<AudioSource>();
+        if (_sfx == null) Debug.LogWarning("GameManager: no AudioSource assigned, sound effects are disabled.", this);
     }
 
     private void Start()
     {
-        cam = Camera.main;
+        _cam = Camera.main;
         ResetLevel();
+    }
+
+    private void OnDestroy()
+    {
+        DOTween.Kill(this);
+        if (_winPopup != null) _winPopup.transform.DOKill();
     }
 
     // ------------------------------------------------------------ Input
 
     private void Update()
     {
-        if (isBusy || won) return;
+        if (_isBusy || _won) return;
         if (!TryGetPointerDown(out Vector2 screenPos)) return;
         if (IsPointerOverUI()) return;
 
-        Bottle b = PickBottle(cam.ScreenToWorldPoint(screenPos));
+        Bottle b = PickBottle(_cam.ScreenToWorldPoint(screenPos));
         if (b != null) OnBottleClicked(b);
     }
 
@@ -140,13 +165,13 @@ public class GameManager : MonoBehaviour
     /// <summary>Returns the bottle at the world point; if several overlap, the one whose center is closest.</summary>
     private Bottle PickBottle(Vector2 worldPoint)
     {
-        int n = Physics2D.OverlapPoint(worldPoint, hitFilter, hitBuffer);
+        int n = Physics2D.OverlapPoint(worldPoint, _hitFilter, _hitBuffer);
         Bottle best = null;
         float bestDist = float.MaxValue;
 
         for (int i = 0; i < n; i++)
         {
-            Bottle b = hitBuffer[i].GetComponentInParent<Bottle>();
+            Bottle b = _hitBuffer[i].GetComponentInParent<Bottle>();
             if (b == null) continue;
 
             float d = ((Vector2)b.transform.position - worldPoint).sqrMagnitude;
@@ -164,25 +189,25 @@ public class GameManager : MonoBehaviour
     /// <summary>Decides what a click on a bottle means: select, deselect, pour, switch source or reject.</summary>
     private void OnBottleClicked(Bottle b)
     {
-        if (selected == null)
+        if (_selected == null)
         {
             if (!b.IsEmpty && !b.Locked) Select(b);
             return;
         }
 
-        if (b == selected)
+        if (b == _selected)
         {
             Deselect();
             return;
         }
 
-        if (CanPour(selected, b))
+        if (CanPour(_selected, b))
         {
-            StartPour(selected, b);
+            StartPour(_selected, b);
             return;
         }
 
-        if (switchSourceOnInvalid && !b.IsEmpty && !b.Locked)
+        if (_switchSourceOnInvalid && !b.IsEmpty && !b.Locked)
         {
             Deselect();
             Select(b);
@@ -194,37 +219,41 @@ public class GameManager : MonoBehaviour
 
     private void Select(Bottle b)
     {
-        selected = b;
-        Play(clickClip);
+        _selected = b;
+        Play(_clickClip);
         b.transform.DOKill();
-        b.transform.DOMoveY(b.HomePos.y + liftY, 0.2f);
+        b.transform.DOMoveY(b.HomePos.y + _liftY, _liftDuration);
         b.SetFront(true);
     }
 
     private void Deselect()
     {
-        if (selected == null) return;
-        Bottle b = selected;
-        selected = null;
-        Play(clickClip);
+        if (_selected == null) return;
+        Bottle b = _selected;
+        _selected = null;
+        Play(_clickClip);
         b.transform.DOKill();
-        b.transform.DOMoveY(b.HomePos.y, 0.2f);
+        b.transform.DOMoveY(b.HomePos.y, _liftDuration);
         b.SetFront(false);
     }
 
     /// <summary>Shakes the selected bottle, plays the error sound and returns it home.</summary>
     private void Reject()
     {
-        isBusy = true;
-        Bottle s = selected;
-        selected = null;
-        Play(errorClip);
+        _isBusy = true;
+        Bottle s = _selected;
+        _selected = null;
+        Play(_errorClip);
         s.transform.DOKill();
         DOTween.Sequence()
             .SetId(this)
-            .Append(s.transform.DOShakePosition(0.3f, new Vector3(0.12f, 0f, 0f), 25, 0f, false, true))
-            .Append(s.transform.DOMove(s.HomePos, 0.2f))
-            .OnComplete(() => { s.SetFront(false); isBusy = false; });
+            .Append(s.transform.DOShakePosition(_shakeDuration, new Vector3(_shakeStrength, 0f, 0f), ShakeVibrato, ShakeRandomness, false, true))
+            .Append(s.transform.DOMove(s.HomePos, _returnDuration))
+            .OnComplete(() =>
+            {
+                s.SetFront(false);
+                _isBusy = false;
+            });
     }
 
     // ------------------------------------------------------------ Pour
@@ -240,59 +269,60 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void StartPour(Bottle src, Bottle dst)
     {
-        isBusy = true;
+        _isBusy = true;
 
-        int colorId = src.TopColor;
+        Color pouredColor = src.TopColor;
         int amount = Mathf.Min(src.TopRunLength(), Bottle.Capacity - dst.Count);
-        Move move = new Move { src = src, dst = dst, colorId = colorId, amount = amount };
+        Move move = new Move { Src = src, Dst = dst, PouredColor = pouredColor, Amount = amount };
 
         // Tilt toward the target. Positive Z rotation is counter-clockwise, hence the minus sign.
         float dir = src.HomePos.x < dst.HomePos.x ? 1f : -1f;
-        float angle = -dir * tiltAngle;
+        float angle = -dir * _tiltAngle;
 
-        // The bottle rotates around its center, so rotate the mouth offset too and
-        // solve for the center position that puts the mouth right above the target mouth.
+        // The bottle rotates around its center, so rotate the mouth offset too and solve for the
+        // center position that puts the source mouth on the target mouth plus the pour offset.
         Vector3 mouthOffset = src.MouthPos - src.transform.position;
-        Vector3 targetMouth = dst.MouthPos + new Vector3(-dir * mouthGap.x, mouthGap.y, 0f);
+        Vector3 targetMouth = dst.MouthPos + new Vector3(-dir * _pourOffset.x, _pourOffset.y, 0f);
         Vector3 pourPos = targetMouth - Quaternion.Euler(0f, 0f, angle) * mouthOffset;
 
         src.transform.DOKill();
         Transform t = src.transform;
+        float halfStep = _pourStep * 0.5f;
 
         Sequence seq = DOTween.Sequence().SetId(this);
-        seq.Append(t.DOMove(pourPos, moveTime).SetEase(Ease.OutQuad));
-        seq.Append(t.DORotate(new Vector3(0f, 0f, angle), tiltTime));
+        seq.Append(t.DOMove(pourPos, _moveTime).SetEase(Ease.OutQuad));
+        seq.Append(t.DORotate(new Vector3(0f, 0f, angle), _tiltTime));
         seq.AppendCallback(() =>
         {
-            Play(pourClip);
-            BeginStream(colorId);
+            Play(_pourClip);
+            BeginStream(pouredColor);
         });
 
         // Transfer one layer per step so the water appears to flow gradually.
         for (int i = 0; i < amount; i++)
         {
-            seq.AppendInterval(pourStep * 0.5f);
+            seq.AppendInterval(halfStep);
             seq.AppendCallback(() =>
             {
                 src.PopTop();
-                dst.Push(colorId);
+                dst.Push(pouredColor);
             });
-            seq.AppendInterval(pourStep * 0.5f);
+            seq.AppendInterval(halfStep);
         }
 
         seq.AppendCallback(EndStream);
-        seq.Append(t.DORotate(Vector3.zero, tiltTime));
-        seq.Append(t.DOMove(src.HomePos, moveTime).SetEase(Ease.InOutQuad));
+        seq.Append(t.DORotate(Vector3.zero, _tiltTime));
+        seq.Append(t.DOMove(src.HomePos, _moveTime).SetEase(Ease.InOutQuad));
         seq.OnUpdate(() => UpdateStream(src, dst));
         seq.OnComplete(() =>
         {
-            selected = null;
+            _selected = null;
             src.SetFront(false);
-            history.Push(move);
+            _history.Push(move);
             AfterPour(move);
-            if (!won)
+            if (!_won)
             {
-                isBusy = false;
+                _isBusy = false;
                 CheckStuck();
             }
         });
@@ -300,31 +330,28 @@ public class GameManager : MonoBehaviour
 
     // ------------------------------------------------------------ Stream
 
-    private void BeginStream(int colorId)
+    private void BeginStream(Color color)
     {
-        if (stream == null) return;
-        if (streamColors != null && colorId < streamColors.Length)
-        {
-            stream.startColor = streamColors[colorId];
-            stream.endColor = streamColors[colorId];
-        }
-        stream.positionCount = 2;
-        stream.enabled = true;
-        streaming = true;
+        if (_stream == null) return;
+        _stream.startColor = color;
+        _stream.endColor = color;
+        _stream.positionCount = 2;
+        _stream.enabled = true;
+        _streaming = true;
     }
 
     /// <summary>Keeps the stream attached to the moving source mouth and the rising water surface.</summary>
     private void UpdateStream(Bottle src, Bottle dst)
     {
-        if (!streaming || stream == null) return;
-        stream.SetPosition(0, src.MouthPos);
-        stream.SetPosition(1, dst.WaterTopPos);
+        if (!_streaming || _stream == null) return;
+        _stream.SetPosition(0, src.MouthPos);
+        _stream.SetPosition(1, dst.WaterTopPos);
     }
 
     private void EndStream()
     {
-        streaming = false;
-        if (stream != null) stream.enabled = false;
+        _streaming = false;
+        if (_stream != null) _stream.enabled = false;
     }
 
     // ------------------------------------------------------------ Rules
@@ -332,41 +359,33 @@ public class GameManager : MonoBehaviour
     /// <summary>Locks newly completed bottles (recording them for undo) and checks for a win.</summary>
     private void AfterPour(Move move)
     {
-        CountColors();
-
         bool allDone = true;
-        foreach (Bottle b in bottles)
+        foreach (Bottle b in _bottles)
         {
             if (!b.Locked && IsSolved(b))
             {
                 b.Locked = true;
-                move.newlyLocked.Add(b);
+                move.NewlyLocked.Add(b);
                 b.PlayCompleteFx();
-                Play(completeClip);
+                Play(_completeClip);
             }
             if (!b.IsEmpty && !b.Locked) allDone = false;
         }
         if (allDone) Win();
     }
 
-    /// <summary>Counts the layers of every color across all bottles in a single pass.</summary>
-    private void CountColors()
-    {
-        if (totals == null || totals.Length != palette.Length) totals = new int[palette.Length];
-        else Array.Clear(totals, 0, totals.Length);
-
-        foreach (Bottle b in bottles)
-            for (int i = 0; i < b.Count; i++)
-                totals[b.ColorAt(i)]++;
-    }
-
     /// <summary>
     /// A bottle is solved when it holds a single color and no layer of that color
-    /// exists in any other bottle. Requires <see cref="CountColors"/> to be called first.
+    /// exists in any other bottle.
     /// </summary>
     private bool IsSolved(Bottle b)
     {
-        return !b.IsEmpty && b.IsMono() && totals[b.TopColor] == b.Count;
+        if (b.IsEmpty || !b.IsMono()) return false;
+
+        Color color = b.TopColor;
+        int total = 0;
+        foreach (Bottle other in _bottles) total += other.CountOf(color);
+        return total == b.Count;
     }
 
     /// <summary>
@@ -375,11 +394,11 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private bool HasAnyMove()
     {
-        foreach (Bottle src in bottles)
+        foreach (Bottle src in _bottles)
         {
             if (src.IsEmpty || src.Locked) continue;
 
-            foreach (Bottle dst in bottles)
+            foreach (Bottle dst in _bottles)
             {
                 if (!CanPour(src, dst)) continue;
                 if (dst.IsEmpty && src.IsMono()) continue;
@@ -391,25 +410,25 @@ public class GameManager : MonoBehaviour
 
     private void CheckStuck()
     {
-        if (stuckPopup == null) return;
-        stuckPopup.SetActive(!HasAnyMove());
+        if (_stuckPopup == null) return;
+        _stuckPopup.SetActive(!HasAnyMove());
     }
 
     private void Win()
     {
-        won = true;
-        isBusy = true;
-        if (stuckPopup != null) stuckPopup.SetActive(false);
-        DOVirtual.DelayedCall(0.8f, ShowWin).SetId(this);
+        _won = true;
+        _isBusy = true;
+        if (_stuckPopup != null) _stuckPopup.SetActive(false);
+        DOVirtual.DelayedCall(_winDelay, ShowWin).SetId(this);
     }
 
     private void ShowWin()
     {
-        Play(winClip);
-        if (winPopup == null) return;
-        winPopup.SetActive(true);
-        winPopup.transform.localScale = Vector3.zero;
-        winPopup.transform.DOScale(1f, 0.4f).SetEase(Ease.OutBack).SetId(this);
+        Play(_winClip);
+        if (_winPopup == null) return;
+        _winPopup.SetActive(true);
+        _winPopup.transform.localScale = Vector3.zero;
+        _winPopup.transform.DOScale(1f, _popupDuration).SetEase(Ease.OutBack).SetId(this);
     }
 
     // ------------------------------------------------------------ Public API (hook up to UI buttons)
@@ -417,21 +436,21 @@ public class GameManager : MonoBehaviour
     /// <summary>Reverts the last pour instantly, unlocking any bottles it completed.</summary>
     public void Undo()
     {
-        if (isBusy || won || history.Count == 0) return;
+        if (_isBusy || _won || _history.Count == 0) return;
 
-        if (selected != null) Deselect();
+        if (_selected != null) Deselect();
 
-        Move m = history.Pop();
-        foreach (Bottle b in m.newlyLocked) b.Locked = false;
+        Move m = _history.Pop();
+        foreach (Bottle b in m.NewlyLocked) b.Locked = false;
 
-        for (int i = 0; i < m.amount; i++)
+        for (int i = 0; i < m.Amount; i++)
         {
-            m.dst.PopTop();
-            m.src.Push(m.colorId);
+            m.Dst.PopTop();
+            m.Src.Push(m.PouredColor);
         }
 
-        Play(clickClip);
-        if (stuckPopup != null) stuckPopup.SetActive(false);
+        Play(_clickClip);
+        if (_stuckPopup != null) _stuckPopup.SetActive(false);
     }
 
     /// <summary>Stops all animations and rebuilds the level from its setup.</summary>
@@ -441,26 +460,27 @@ public class GameManager : MonoBehaviour
 
         // Kill only this game's tweens so DOTween usage elsewhere is unaffected.
         DOTween.Kill(this);
-        foreach (Bottle b in bottles) b.transform.DOKill();
+        foreach (Bottle b in _bottles) b.transform.DOKill();
 
-        isBusy = false;
-        won = false;
-        selected = null;
-        history.Clear();
+        _isBusy = false;
+        _won = false;
+        _selected = null;
+        _history.Clear();
         EndStream();
 
-        if (winPopup != null)
+        if (_winPopup != null)
         {
-            winPopup.transform.DOKill();
-            winPopup.SetActive(false);
+            _winPopup.transform.DOKill();
+            _winPopup.SetActive(false);
         }
-        if (stuckPopup != null) stuckPopup.SetActive(false);
+        if (_stuckPopup != null) _stuckPopup.SetActive(false);
 
         BottleSetup[] data = ResolveSetup();
-        for (int i = 0; i < bottles.Length; i++)
+        for (int i = 0; i < _bottles.Length; i++)
         {
-            bottles[i].transform.SetPositionAndRotation(bottles[i].HomePos, Quaternion.identity);
-            bottles[i].Init(data[i] != null ? data[i].layers : null, palette);
+            _bottles[i].transform.SetPositionAndRotation(_bottles[i].HomePos, Quaternion.identity);
+            BuildColors(data[i]);
+            _bottles[i].Init(_scratchColors);
         }
     }
 
@@ -468,23 +488,47 @@ public class GameManager : MonoBehaviour
 
     private bool ValidateLevel()
     {
-        if (bottles == null || bottles.Length == 0 || palette == null || palette.Length == 0)
+        if (_bottles == null || _bottles.Length == 0 || _colorPalette == null || _colorPalette.Length == 0)
         {
-            Debug.LogError("GameManager: bottles or palette is not assigned.", this);
+            Debug.LogError("GameManager: bottles or color palette is not assigned.", this);
             return false;
         }
+
+        foreach (Color c in _colorPalette)
+        {
+            if (c.a > 0f) continue;
+            Debug.LogWarning("GameManager: a palette color is fully transparent, its water will be invisible.", this);
+            break;
+        }
         return true;
+    }
+
+    /// <summary>Fills the reusable color list from a setup entry, skipping ids outside the palette.</summary>
+    private void BuildColors(BottleSetup setup)
+    {
+        _scratchColors.Clear();
+        if (setup == null || setup.layers == null) return;
+
+        foreach (int id in setup.layers)
+        {
+            if (id < 0 || id >= _colorPalette.Length)
+            {
+                Debug.LogWarning($"GameManager: color id {id} is not in the palette, skipped.", this);
+                continue;
+            }
+            _scratchColors.Add(_colorPalette[id]);
+        }
     }
 
     /// <summary>Returns the configured setup if it matches the bottle count, otherwise the default one.</summary>
     private BottleSetup[] ResolveSetup()
     {
-        if (setup != null && setup.Length == bottles.Length) return setup;
+        if (_setup != null && _setup.Length == _bottles.Length) return _setup;
 
-        if (setup != null && setup.Length > 0)
-            Debug.LogWarning($"GameManager: setup has {setup.Length} bottles but the scene has {bottles.Length}. Falling back to the default setup.", this);
+        if (_setup != null && _setup.Length > 0)
+            Debug.LogWarning($"GameManager: setup has {_setup.Length} bottles but the scene has {_bottles.Length}. Falling back to the default setup.", this);
 
-        return DefaultSetup(bottles.Length);
+        return DefaultSetup(_bottles.Length);
     }
 
     /// <summary>Builds a fallback setup with exactly <paramref name="count"/> entries (extra bottles start empty).</summary>
@@ -504,8 +548,8 @@ public class GameManager : MonoBehaviour
         return result;
     }
 
-    private void Play(AudioClip c)
+    private void Play(AudioClip clip)
     {
-        if (sfx != null && c != null) sfx.PlayOneShot(c);
+        if (_sfx != null && clip != null) _sfx.PlayOneShot(clip);
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -11,16 +12,21 @@ public class Bottle : MonoBehaviour
     /// <summary>Maximum number of layers a bottle can hold.</summary>
     public const int Capacity = 4;
 
-    [Tooltip("Four water layers ordered from the bottom (0) to the mouth (3).")]
-    [SerializeField] private SpriteRenderer[] layers = new SpriteRenderer[Capacity];
-    [Tooltip("Empty transform placed at the mouth of the bottle.")]
-    [SerializeField] private Transform mouth;
-    [Tooltip("Confetti/sparkle particle played when the bottle is completed.")]
-    [SerializeField] private ParticleSystem completeFx;
+    private const int FrontOrderOffset = 10;
 
-    // Color ids ordered from the bottom (index 0) to the top (last index).
-    private readonly List<int> colors = new List<int>(Capacity);
-    private Sprite[] palette;
+    [Tooltip("Four white water layers ordered from the bottom (0) to the mouth (3). Their color is set at runtime.")]
+    [SerializeField] private SpriteRenderer[] _layers = new SpriteRenderer[Capacity];
+
+    [Tooltip("Empty transform placed at the lip of the bottle. Pouring aligns the source mouth to the target mouth point.")]
+    [SerializeField] private Transform _mouthPoint;
+
+    [Tooltip("Confetti/sparkle particle played when the bottle is completed.")]
+    [SerializeField] private ParticleSystem _completeFx;
+
+    // Layer colors ordered from the bottom (index 0) to the top (last index).
+    private readonly List<Color> _colors = new List<Color>(Capacity);
+    private SortingGroup _sortingGroup;
+    private int _baseSortingOrder;
 
     /// <summary>Position the bottle returns to after being lifted or used as a pour source.</summary>
     public Vector3 HomePos { get; private set; }
@@ -29,105 +35,96 @@ public class Bottle : MonoBehaviour
     public bool Locked { get; set; }
 
     /// <summary>Number of layers currently in the bottle.</summary>
-    public int Count => colors.Count;
+    public int Count => _colors.Count;
 
-    public bool IsEmpty => colors.Count == 0;
-    public bool IsFull => colors.Count >= Capacity;
+    public bool IsEmpty => _colors.Count == 0;
+    public bool IsFull => _colors.Count >= Capacity;
 
-    /// <summary>Color id of the top layer, or -1 if the bottle is empty.</summary>
-    public int TopColor => colors.Count > 0 ? colors[colors.Count - 1] : -1;
+    /// <summary>Color of the top layer. Returns <see cref="Color.clear"/> when empty, so check <see cref="IsEmpty"/> first.</summary>
+    public Color TopColor => _colors.Count > 0 ? _colors[_colors.Count - 1] : Color.clear;
 
     /// <summary>World position of the bottle mouth (falls back to the bottle center).</summary>
-    public Vector3 MouthPos => mouth != null ? mouth.position : transform.position;
-
-    private const int FrontOrderOffset = 10;
-    private SortingGroup sortingGroup;
-    private int baseSortingOrder;
+    public Vector3 MouthPos => _mouthPoint != null ? _mouthPoint.position : transform.position;
 
     /// <summary>World position of the top water surface, used as the end point of the pour stream.</summary>
     public Vector3 WaterTopPos
     {
         get
         {
-            int i = Mathf.Clamp(colors.Count - 1, 0, layers.Length - 1);
-            return layers[i].transform.position;
+            int i = Mathf.Clamp(_colors.Count - 1, 0, _layers.Length - 1);
+            return _layers[i].transform.position;
         }
     }
 
     private void Awake()
     {
         HomePos = transform.position;
-        sortingGroup = GetComponent<SortingGroup>();
-        if (sortingGroup != null) baseSortingOrder = sortingGroup.sortingOrder;
+        _sortingGroup = GetComponent<SortingGroup>();
+        if (_sortingGroup != null) _baseSortingOrder = _sortingGroup.sortingOrder;
+    }
+
+    private void OnDestroy()
+    {
+        transform.DOKill();
     }
 
     /// <summary>Draws this bottle above the others while it is lifted or pouring.</summary>
     public void SetFront(bool front)
     {
-        if (sortingGroup == null) return;
-        sortingGroup.sortingOrder = baseSortingOrder + (front ? FrontOrderOffset : 0);
+        if (_sortingGroup == null) return;
+        _sortingGroup.sortingOrder = _baseSortingOrder + (front ? FrontOrderOffset : 0);
     }
 
     /// <summary>
-    /// Resets the bottle with the given color ids (bottom to top).
-    /// Ids outside the palette and layers beyond <see cref="Capacity"/> are ignored.
+    /// Resets the bottle with the given layer colors (bottom to top).
+    /// Layers beyond <see cref="Capacity"/> are ignored.
     /// </summary>
-    public void Init(int[] ids, Sprite[] pal)
+    public void Init(IReadOnlyList<Color> colors)
     {
-        palette = pal;
         Locked = false;
-        colors.Clear();
+        _colors.Clear();
 
-        if (ids != null)
+        if (colors != null)
         {
-            foreach (int id in ids)
-            {
-                if (colors.Count >= Capacity)
-                {
-                    Debug.LogWarning($"{name}: setup exceeds capacity ({Capacity}), extra layers ignored.", this);
-                    break;
-                }
-                if (pal == null || id < 0 || id >= pal.Length)
-                {
-                    Debug.LogWarning($"{name}: color id {id} is not in the palette, skipped.", this);
-                    continue;
-                }
-                colors.Add(id);
-            }
+            if (colors.Count > Capacity)
+                Debug.LogWarning($"{name}: setup exceeds capacity ({Capacity}), extra layers ignored.", this);
+
+            int count = Mathf.Min(colors.Count, Capacity);
+            for (int i = 0; i < count; i++) _colors.Add(colors[i]);
         }
 
-        if (completeFx != null)
-            completeFx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        SetFront(false);
+
+        if (_completeFx != null)
+            _completeFx.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
         Refresh();
     }
-
-    /// <summary>Returns the color id of the layer at <paramref name="index"/> (0 = bottom).</summary>
-    public int ColorAt(int index) => colors[index];
 
     /// <summary>Returns how many consecutive layers of the same color sit on top of the bottle.</summary>
     public int TopRunLength()
     {
         if (IsEmpty) return 0;
-        int c = TopColor, n = 0;
-        for (int i = colors.Count - 1; i >= 0 && colors[i] == c; i--) n++;
+        Color top = TopColor;
+        int n = 0;
+        for (int i = _colors.Count - 1; i >= 0 && _colors[i] == top; i--) n++;
         return n;
     }
 
     /// <summary>Returns true if every layer has the same color (also true when empty).</summary>
     public bool IsMono()
     {
-        for (int i = 1; i < colors.Count; i++)
-            if (colors[i] != colors[0]) return false;
+        for (int i = 1; i < _colors.Count; i++)
+            if (_colors[i] != _colors[0]) return false;
         return true;
     }
 
-    /// <summary>Returns how many layers have the given color id.</summary>
-    public int CountOf(int id)
+    /// <summary>Returns how many layers have the given color.</summary>
+    public int CountOf(Color color)
     {
         int n = 0;
-        for (int i = 0; i < colors.Count; i++)
-            if (colors[i] == id) n++;
+        for (int i = 0; i < _colors.Count; i++)
+            if (_colors[i] == color) n++;
         return n;
     }
 
@@ -135,42 +132,42 @@ public class Bottle : MonoBehaviour
     /// A bottle accepts a color if it is unlocked, not full,
     /// and either empty or topped with the same color.
     /// </summary>
-    public bool CanReceive(int id) => !Locked && !IsFull && (IsEmpty || TopColor == id);
+    public bool CanReceive(Color color) => !Locked && !IsFull && (IsEmpty || TopColor == color);
 
-    /// <summary>Removes the top layer and returns its color id, or -1 if the bottle is empty.</summary>
-    public int PopTop()
+    /// <summary>Removes the top layer and returns its color. Returns <see cref="Color.clear"/> if the bottle is empty.</summary>
+    public Color PopTop()
     {
-        if (IsEmpty) return -1;
-        int c = TopColor;
-        colors.RemoveAt(colors.Count - 1);
+        if (IsEmpty) return Color.clear;
+        Color top = TopColor;
+        _colors.RemoveAt(_colors.Count - 1);
         Refresh();
-        return c;
+        return top;
     }
 
     /// <summary>Adds a layer on top. Does nothing if the bottle is full.</summary>
-    public void Push(int id)
+    public void Push(Color color)
     {
         if (IsFull) return;
-        colors.Add(id);
+        _colors.Add(color);
         Refresh();
     }
 
-    /// <summary>Syncs the layer sprites with the color data.</summary>
+    /// <summary>Syncs the layer renderers with the color data.</summary>
     public void Refresh()
     {
-        for (int i = 0; i < layers.Length; i++)
+        for (int i = 0; i < _layers.Length; i++)
         {
-            if (layers[i] == null) continue;
+            if (_layers[i] == null) continue;
 
-            bool on = i < colors.Count;
-            if (layers[i].gameObject.activeSelf != on) layers[i].gameObject.SetActive(on);
-            if (on) layers[i].sprite = palette[colors[i]];
+            bool on = i < _colors.Count;
+            if (_layers[i].gameObject.activeSelf != on) _layers[i].gameObject.SetActive(on);
+            if (on) _layers[i].color = _colors[i];
         }
     }
 
     /// <summary>Plays the completion particle effect, if assigned.</summary>
     public void PlayCompleteFx()
     {
-        if (completeFx != null) completeFx.Play();
+        if (_completeFx != null) _completeFx.Play();
     }
 }

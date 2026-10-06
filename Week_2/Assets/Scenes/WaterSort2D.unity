@@ -503,32 +503,41 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fdf8805c85d9bd049a8b56c0697e1c5a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bottles:
+  _bottles:
   - {fileID: 2139224377}
   - {fileID: 943465177}
   - {fileID: 1050410411}
   - {fileID: 131331697}
-  palette:
-  - {fileID: -606747317, guid: fd73a95c8bbab0049be4f7c25923729a, type: 3}
-  - {fileID: -618173395, guid: 4e3d5e7e5ab53974198f6906a86c1787, type: 3}
-  - {fileID: -101904008, guid: f1b90a8380d077b4ebc1e71ef9621159, type: 3}
-  setup: []
-  switchSourceOnInvalid: 1
-  liftY: 0.6
-  moveTime: 0.35
-  tiltAngle: 80
-  tiltTime: 0.3
-  pourStep: 0.4
-  mouthGap: {x: 0, y: 0.6}
-  stream: {fileID: 0}
-  streamColors: []
-  sfx: {fileID: 203176318}
-  clickClip: {fileID: 8300000, guid: 11bf52a34d569374590b7fc20da3e5b4, type: 3}
-  pourClip: {fileID: 8300000, guid: 5a5baeb90083dfd4ea73ce450cd35648, type: 3}
-  errorClip: {fileID: 8300000, guid: ab6d1b58bfcb07a408ac647b1903dfc8, type: 3}
-  completeClip: {fileID: 8300000, guid: c7e9a3cb2857fa542a8682959908aa6e, type: 3}
-  winClip: {fileID: 8300000, guid: 328c516623e348442a1a4452478ea712, type: 3}
-  winPopup: {fileID: 531291103}
+  _colorPalette:
+  - {r: 0.10980392, g: 0.5764706, b: 0.7764706, a: 1}
+  - {r: 0.11764706, g: 0.78431374, b: 0.23529412, a: 1}
+  - {r: 0.9411765, g: 0.54901963, b: 0.19607843, a: 1}
+  _setup: []
+  _bottleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _switchSourceOnInvalid: 1
+  _liftY: 0.6
+  _liftDuration: 0.2
+  _moveTime: 0.35
+  _tiltAngle: 70
+  _tiltTime: 0.3
+  _pourStep: 0.4
+  _pourOffset: {x: 0.2, y: 0.6}
+  _shakeDuration: 0.3
+  _shakeStrength: 0.12
+  _returnDuration: 0.2
+  _stream: {fileID: 0}
+  _sfx: {fileID: 203176318}
+  _clickClip: {fileID: 8300000, guid: 11bf52a34d569374590b7fc20da3e5b4, type: 3}
+  _pourClip: {fileID: 8300000, guid: 5a5baeb90083dfd4ea73ce450cd35648, type: 3}
+  _errorClip: {fileID: 8300000, guid: ab6d1b58bfcb07a408ac647b1903dfc8, type: 3}
+  _completeClip: {fileID: 8300000, guid: c7e9a3cb2857fa542a8682959908aa6e, type: 3}
+  _winClip: {fileID: 8300000, guid: 328c516623e348442a1a4452478ea712, type: 3}
+  _winPopup: {fileID: 531291103}
+  _stuckPopup: {fileID: 0}
+  _winDelay: 0.8
+  _popupDuration: 0.4
 --- !u!4 &203176320
 Transform:
   m_ObjectHideFlags: 0
