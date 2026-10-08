@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3184806477582756739}
   - component: {fileID: 4497423101575039821}
-  - component: {fileID: 4551953225476526018}
   - component: {fileID: 36381601112967996}
+  - component: {fileID: 6904834235984332529}
   m_Layer: 0
   m_Name: BottlePrefab
   m_TagString: Untagged
@@ -87,25 +87,6 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 1.2, y: 3.71}
   m_EdgeRadius: 0
---- !u!114 &4551953225476526018
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2716158374700104895}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f71e626a0c5a9b14e897d8436987c63d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _layers:
-  - {fileID: 2450481897821427815}
-  - {fileID: 2885810564524006134}
-  - {fileID: 8555636425606845181}
-  - {fileID: 7729090514457614118}
-  _mouthPoint: {fileID: 7210497265991553484}
-  _completeFx: {fileID: 6879758659499074632}
 --- !u!210 &36381601112967996
 SortingGroup:
   m_ObjectHideFlags: 0
@@ -118,6 +99,25 @@ SortingGroup:
   m_SortingLayer: 0
   m_SortingOrder: 10
   m_SortAtRoot: 0
+--- !u!114 &6904834235984332529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2716158374700104895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1995c8df638cf54458b731a38c719999, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _layers:
+  - {fileID: 2450481897821427815}
+  - {fileID: 2885810564524006134}
+  - {fileID: 8555636425606845181}
+  - {fileID: 7729090514457614118}
+  _mouthPoint: {fileID: 7210497265991553484}
+  _completeFx: {fileID: 6879758659499074632}
 --- !u!1 &3481013922263670943
 GameObject:
   m_ObjectHideFlags: 0
