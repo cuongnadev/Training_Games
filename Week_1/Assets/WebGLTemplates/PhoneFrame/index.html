@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Simple Inventory System</title>
+  <title>{{{ PRODUCT_NAME }}}</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: #0d1117; font-family: Arial, sans-serif; }
@@ -59,22 +59,22 @@
       </div>
     </div>
     <div id="footer">
-      <span>Simple Inventory System</span>
+      <span>{{{ PRODUCT_NAME }}}</span>
       <button id="fs-btn">Toàn màn hình</button>
     </div>
   </div>
 
-  <script src="Build/Week_1.loader.js"></script>
+  <script src="Build/{{{ LOADER_FILENAME }}}"></script>
   <script>
     var buildUrl = "Build";
     var config = {
-      dataUrl: buildUrl + "/Week_1.data",
-      frameworkUrl: buildUrl + "/Week_1.framework.js",
-      codeUrl: buildUrl + "/Week_1.wasm",
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
       streamingAssetsUrl: "StreamingAssets",
-      companyName: "DefaultCompany",
-      productName: "Simple Inventory System",
-      productVersion: "1.0",
+      companyName: "{{{ COMPANY_NAME }}}",
+      productName: "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
       showBanner: function (msg, type) { console.log(type + ": " + msg); }
     };
 
