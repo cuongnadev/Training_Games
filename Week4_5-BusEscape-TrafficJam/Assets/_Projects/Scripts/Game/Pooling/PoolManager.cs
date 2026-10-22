@@ -1,18 +1,42 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class PoolManager : MonoBehaviour
+namespace BusJam
 {
-    // Start is called before the first frame update
-    void Start()
+    [DefaultExecutionOrder(-200)]
+    public class PoolManager : MonoBehaviour
     {
-        
-    }
+        public static PoolManager Instance { get; private set; }
 
-    // Update is called once per frame
-    void Update()
-    {
+        [SerializeField] private VehiclePool vehicles;
+        [SerializeField] private PassengerPool passengers;
+        [SerializeField] private VfxPool vfx;
         
+        public VehiclePool Vehicles => vehicles;
+        public PassengerPool Passengers => passengers;
+        public VfxPool Vfx => vfx;
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                enabled = false;
+                return;
+            }
+
+            Instance = this;
+            if (vehicles == null) vehicles = GetComponentInChildren<VehiclePool>();
+            if (passengers == null) passengers = GetComponentInChildren<PassengerPool>();
+            if (vfx == null) vfx = GetComponentInChildren<VfxPool>();
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
+        public void ReleaseTransientObjects()
+        {
+            if (vfx != null) vfx.ReleaseAll();
+        }
     }
 }

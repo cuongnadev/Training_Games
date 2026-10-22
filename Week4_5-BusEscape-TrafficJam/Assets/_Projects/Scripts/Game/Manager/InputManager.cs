@@ -7,6 +7,7 @@ namespace BusJam
     {
         [SerializeField] private Camera targetCamera;
         [SerializeField] private VehicleManager vehicleManager;
+        [SerializeField] private bool blockWhileVehicleMoving = false;
 
         private void Awake()
         {
@@ -21,9 +22,11 @@ namespace BusJam
             if (GameManager.Instance != null && GameManager.Instance.State != GameState.Playing) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
             if (targetCamera == null || vehicleManager == null) return;
+            if (blockWhileVehicleMoving && vehicleManager.HasMovingVehicle) return;
 
             Vector2 worldPoint = targetCamera.ScreenToWorldPoint(Input.mousePosition);
             Collider2D hit = Physics2D.OverlapPoint(worldPoint);
+
             if (hit != null && hit.TryGetComponent(out VehicleController vehicle))
                 vehicle.TryMove();
         }

@@ -9,12 +9,14 @@ namespace BusJam
         [SerializeField, Min(1)] private int levelNumber = 1;
         [SerializeField, Min(1)] private int gridWidth = 9;
         [SerializeField, Min(1)] private int gridHeight = 12;
+        [SerializeField, Min(1)] private int unlockedSlots = 6; 
         [SerializeField] private List<VehicleSpawnData> vehicles = new List<VehicleSpawnData>();
         [SerializeField] private List<GameColor> passengerColors = new List<GameColor>();
 
         public int LevelNumber => levelNumber;
         public int GridWidth => gridWidth;
         public int GridHeight => gridHeight;
+        public int UnlockedSlots => unlockedSlots;
         public IReadOnlyList<VehicleSpawnData> Vehicles => vehicles;
         public IReadOnlyList<GameColor> PassengerColors => passengerColors;
 
@@ -24,6 +26,8 @@ namespace BusJam
             gridWidth = Mathf.Max(1, width);
             gridHeight = Mathf.Max(1, height);
         }
+        
+        public void SetUnlockedSlots(int value) => unlockedSlots = Mathf.Max(1, value);
 
         public void ReplaceVehicles(IEnumerable<VehicleSpawnData> values)
         {
@@ -47,6 +51,7 @@ namespace BusJam
 
             var occupied = new HashSet<Vector2Int>();
             int requiredPassengers = 0;
+            var requiredByColor = new Dictionary<GameColor, int>();
 
             for (int i = 0; i < vehicles.Count; i++)
             {
@@ -79,6 +84,8 @@ namespace BusJam
                 }
 
                 requiredPassengers += vehicle.kind.Capacity();
+                requiredByColor.TryGetValue(vehicle.color, out int need);
+                requiredByColor[vehicle.color] = need + vehicle.kind.Capacity();
             }
 
             if (passengerColors.Count == 0)
@@ -90,6 +97,21 @@ namespace BusJam
             if (passengerColors.Count != requiredPassengers)
                 errors.Add($"Passenger queue has {passengerColors.Count} passengers, but exactly {requiredPassengers} are required for this level.");
 
+            var haveByColor = new Dictionary<GameColor, int>();
+            foreach (var c in passengerColors)
+            {
+                haveByColor.TryGetValue(c, out int have);
+                haveByColor[c] = have + 1;
+            }
+
+            foreach (GameColor c in System.Enum.GetValues((typeof(GameColor))))
+            {
+                requiredByColor.TryGetValue(c, out int need);
+                haveByColor.TryGetValue(c, out int have);
+                if(need != have) 
+                    errors.Add($"Color {c}: vehicles need {need} passengers but the queue has {have}.");
+            }
+            
             return errors.Count == 0;
         }
     }

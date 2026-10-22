@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 using UnityEngine;
 
 namespace BusJam
@@ -9,13 +10,24 @@ namespace BusJam
     public class VehicleController : MonoBehaviour
     {
         [Header("Movement")]
+        [Tooltip("Travel speed in grid cells per second.")]
         [SerializeField] private float moveSpeed = 14f;
+        [Tooltip("How far into the blocker the vehicle bumps before rolling back, in cells.")]
         [SerializeField] private float bumpCells = 0.15f;
+        [Tooltip("Seconds taken to rotate into the parked orientation.")]
         [SerializeField] private float rotateDuration = 0.15f;
 
         [Header("Visual")]
+        [Tooltip("How much of the cell the vehicle sprite fills.")]
         [SerializeField, Range(0.5f, 1f)] private float fill = 0.9f;
+        [Tooltip("0 keeps the sprite aspect ratio, 1 stretches it to fill the cells exactly.")]
         [SerializeField, Range(0f, 1f)] private float stretch = 0.5f;
+
+        [Header("Juice")]
+        [Tooltip("Seconds between smoke puffs while the vehicle is moving.")]
+        [SerializeField] private float smokeInterval = 0.07f;
+        [Tooltip("Optional boarded/capacity tooltip shown at the tail when parked. Found automatically in children if empty.")]
+        [SerializeField] private VehicleBoardCounter counter;
 
         private ParkingGrid _grid;
         private ParkSlotController _slots;
@@ -27,6 +39,11 @@ namespace BusJam
         private float _rotation;
         private Direction _facing;
         private int _slotIndex = -1;
+        private Vector3 _baseScale = Vector3.one;
+        private Vector3 _squash = Vector3.one;
+        private Vector2 _spriteCenter;
+        private Tween _squashTween;
+        private float _smokeTimer;
         private readonly List<Vector3> _path = new List<Vector3>(8);
 
         public VehicleKind Kind { get; private set; }
@@ -36,6 +53,7 @@ namespace BusJam
         public bool IsMoving { get; private set; }
         public bool HasEscaped { get; private set; }
         public bool IsParked { get; private set; }
+        public int Boarded { get; private set; }
         public Vector3 CenterWorld => _center;
         public VehicleView View => _view;
 
@@ -49,6 +67,19 @@ namespace BusJam
             _view = GetComponent<VehicleView>();
             _sr = GetComponent<SpriteRenderer>();
             _collider = GetComponent<BoxCollider2D>();
+            if (counter == null) counter = GetComponentInChildren<VehicleBoardCounter>(true);
+            if (counter != null) counter.Detach();
+        }
+
+        private void OnDisable()
+        {
+            KillSquash(true);
+            if (counter != null) counter.Hide();
+        }
+
+        private void OnDestroy()
+        {
+            if (counter != null) Destroy(counter.gameObject);
         }
 
         public bool Init(ParkingGrid grid, VehicleSpawnData data, ParkSlotController slots = null)
@@ -56,6 +87,7 @@ namespace BusJam
             if (_view == null) Awake();
 
             StopAllCoroutines();
+            KillSquash(true);
             _grid = grid;
             _slots = slots;
             _slotIndex = -1;
@@ -66,8 +98,11 @@ namespace BusJam
             IsMoving = false;
             HasEscaped = false;
             IsParked = false;
+            Boarded = 0;
+            _smokeTimer = 0f;
             _rotation = 0f;
             _collider.enabled = true;
+            if (counter != null) counter.Hide();
 
             if (!_grid.Place(this)) return false;
 
@@ -124,15 +159,89 @@ namespace BusJam
             float sAcross = Mathf.Lerp(uniform, fitAcross, stretch);
 
             Vector2 scale = vertical ? new Vector2(sAcross, sAlong) : new Vector2(sAlong, sAcross);
-            transform.localScale = new Vector3(scale.x, scale.y, 1f);
-
-            _pivotOffset = new Vector3(center.x * scale.x, center.y * scale.y, 0f);
+            _baseScale = new Vector3(scale.x, scale.y, 1f);
+            _spriteCenter = center;
+            ApplyScale();
 
             Vector2 world = vertical
                 ? new Vector2(targetAcross, targetAlong)
                 : new Vector2(targetAlong, targetAcross);
             _collider.size = new Vector2(world.x / scale.x, world.y / scale.y);
             _collider.offset = center;
+        }
+
+        private void ApplyScale()
+        {
+            Vector3 scale = Vector3.Scale(_baseScale, _squash);
+            transform.localScale = scale;
+            _pivotOffset = new Vector3(_spriteCenter.x * scale.x, _spriteCenter.y * scale.y, 0f);
+        }
+
+        private void SetSquash(Vector3 value)
+        {
+            _squash = value;
+            ApplyScale();
+            SyncTransform();
+        }
+
+        private void KillSquash(bool reset)
+        {
+            _squashTween?.Kill();
+            _squashTween = null;
+            if (!reset) return;
+            _squash = Vector3.one;
+            if (_sr != null && _grid != null) ApplyScale();
+        }
+
+        private Vector3 AxisScale(float along, float across)
+        {
+            bool vertical = _facing == Direction.Up || _facing == Direction.Down;
+            return vertical ? new Vector3(across, along, 1f) : new Vector3(along, across, 1f);
+        }
+
+        private Tween SquashTo(Vector3 target, float duration, Ease ease)
+            => DOTween.To(() => _squash, SetSquash, target, duration).SetEase(ease);
+
+        public void PlayLaunchSquash()
+        {
+            KillSquash(false);
+            var seq = DOTween.Sequence();
+            seq.Append(SquashTo(AxisScale(0.92f, 1.07f), 0.07f, Ease.OutQuad));
+            seq.Append(SquashTo(AxisScale(1.15f, 0.9f), 0.10f, Ease.OutQuad));
+            seq.Append(SquashTo(Vector3.one, 0.28f, Ease.OutElastic));
+            _squashTween = seq;
+        }
+
+        public void Wobble(float amount = 0.08f)
+        {
+            KillSquash(false);
+            var seq = DOTween.Sequence();
+            seq.Append(SquashTo(new Vector3(1f + amount, 1f + amount, 1f), 0.06f, Ease.OutQuad));
+            seq.Append(SquashTo(Vector3.one, 0.18f, Ease.OutBack));
+            _squashTween = seq;
+        }
+
+        public void NotifyBoarded(int count)
+        {
+            Boarded = count;
+            if (counter != null) counter.Set(count, Kind.Capacity());
+            Wobble(0.06f);
+        }
+
+        private void ShowCounter()
+        {
+            if (counter == null) return;
+
+            Vector3 tailDir = Quaternion.Euler(0f, 0f, _rotation) * Vector3.down;
+            Bounds b = _sr.bounds;
+            float half = Mathf.Abs(tailDir.x) * b.extents.x + Mathf.Abs(tailDir.y) * b.extents.y;
+            counter.ShowAt(b.center + tailDir * half, tailDir, _grid.CellSize, Boarded, Kind.Capacity());
+        }
+
+        private void EmitSmoke(Vector3 moveDir)
+        {
+            float back = Kind.Length() * _grid.CellSize * 0.4f;
+            GameFeedback.Smoke(_center - moveDir * back, _grid.CellSize);
         }
 
         private static void GetVisibleRect(Sprite sprite, out Vector2 size, out Vector2 center)
@@ -165,6 +274,7 @@ namespace BusJam
         public void TryMove()
         {
             if (IsMoving || HasEscaped) return;
+            GameFeedback.VehicleClick();
 
             int free = _grid.CountFreeSteps(this, out var blocker);
 
@@ -196,6 +306,8 @@ namespace BusJam
             _grid.Remove(this);
             _collider.enabled = false;
             Escaped?.Invoke(this);
+            GameFeedback.VehicleLaunch();
+            PlayLaunchSquash();
 
             float distance = (freeSteps + Kind.Length() + 1) * _grid.CellSize;
             yield return MoveCenterTo(_center + (Vector3)(Vector2)Direction.ToVector() * distance);
@@ -211,6 +323,8 @@ namespace BusJam
             _grid.Remove(this);
             _collider.enabled = false;
             Escaped?.Invoke(this);
+            GameFeedback.VehicleLaunch();
+            PlayLaunchSquash();
 
             _slots.BuildPath(CenterCell(), Direction, _slotIndex, _path);
 
@@ -230,6 +344,7 @@ namespace BusJam
 
             IsMoving = false;
             IsParked = true;
+            ShowCounter();
             Parked?.Invoke(this);
             _slots.NotifyArrived(_slotIndex);
         }
@@ -238,18 +353,18 @@ namespace BusJam
         {
             IsMoving = true;
             IsParked = false;
+            if (counter != null) counter.Hide();
+            GameFeedback.VehicleDepartStart();
 
-            // Đưa xe về thẳng, vẫn hướng lên (nhìn như đang lùi)
             ApplyFacing(Direction.Up, VehicleSkin.Arrow);
             yield return RotateTo(0f);
 
-            // 1. Lùi xuống đường một chút
             yield return MoveCenterTo(_center + Vector3.down * (backCells * _grid.CellSize));
 
-            // 2. Quay đầu sang phải
             ApplyFacing(Direction.Right, VehicleSkin.Arrow);
+            PlayLaunchSquash();
+            GameFeedback.VehicleDepartLaunch();
 
-            // 3. Chạy sang phải, ra khỏi màn hình
             yield return MoveCenterTo(new Vector3(exitX, _center.y, _center.z));
 
             IsMoving = false;
@@ -262,9 +377,15 @@ namespace BusJam
             Vector3 start = _center;
             Vector3 dir = (Vector3)(Vector2)Direction.ToVector();
 
-            yield return MoveCenterTo(start + dir * ((freeSteps + bumpCells) * _grid.CellSize));
+            yield return MoveCenterTo(start + dir * ((freeSteps + bumpCells) * _grid.CellSize), false);
+
+            Vector3 contact = _center + dir * (Kind.Length() * _grid.CellSize * 0.5f);
+            GameFeedback.VehicleBump(contact, _grid.CellSize);
+            Wobble(0.1f);
+            if (blocker != null) blocker.Wobble(0.1f);
+
             Blocked?.Invoke(this, blocker);
-            yield return MoveCenterTo(start);
+            yield return MoveCenterTo(start, false);
 
             IsMoving = false;
         }
@@ -292,14 +413,26 @@ namespace BusJam
             SyncTransform();
         }
 
-        private IEnumerator MoveCenterTo(Vector3 target)
+        private IEnumerator MoveCenterTo(Vector3 target, bool smoke = true)
         {
             float speed = moveSpeed * _grid.CellSize;
 
             while ((_center - target).sqrMagnitude > 0.0001f)
             {
+                Vector3 previous = _center;
                 _center = Vector3.MoveTowards(_center, target, speed * Time.deltaTime);
                 SyncTransform();
+
+                if (smoke)
+                {
+                    _smokeTimer -= Time.deltaTime;
+                    Vector3 step = _center - previous;
+                    if (_smokeTimer <= 0f && step.sqrMagnitude > 1e-8f)
+                    {
+                        _smokeTimer = smokeInterval;
+                        EmitSmoke(step.normalized);
+                    }
+                }
                 yield return null;
             }
 

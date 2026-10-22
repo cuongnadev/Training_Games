@@ -33,6 +33,14 @@ namespace BusJam
 
         public void SetOrder(int order) => SR.sortingOrder = order;
 
+        public void ResetForPool()
+        {
+            _slide = null;
+            SR.enabled = true;
+        }
+
+        private void OnDisable() => _slide = null;
+
         public void StopSlide()
         {
             if (_slide == null) return;
@@ -93,6 +101,7 @@ namespace BusJam
         {
             for (int i = 0; i < points.Count; i++)
                 yield return MoveTo(points[i], speed);
+
             _slide = null;
         }
 
@@ -112,9 +121,15 @@ namespace BusJam
         {
             while ((transform.position - target).sqrMagnitude > 0.0001f)
             {
-                transform.position = Vector3.MoveTowards(transform.position, target, speed * Time.deltaTime);
+                transform.position = Vector3.MoveTowards(
+                    transform.position,
+                    target,
+                    speed * Time.deltaTime
+                );
+
                 yield return null;
             }
+
             transform.position = target;
         }
     }

@@ -8,7 +8,8 @@ namespace BusJam
         Loading,
         Playing,
         Won,
-        Lost
+        Lost,
+        Menu
     }
 
     public sealed class GameManager : MonoBehaviour
