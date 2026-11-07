@@ -70,8 +70,7 @@ namespace BusJam
                 
                 var img = obj.GetComponent<Image>();
                 if (img != null) img.raycastTarget = false;
-
-                // Tự động thêm CanvasGroup để điều khiển độ mờ alpha
+                
                 var cg = obj.GetComponent<CanvasGroup>();
                 if (cg == null) cg = obj.AddComponent<CanvasGroup>();
                 cg.alpha = 0f;
@@ -117,8 +116,7 @@ namespace BusJam
                 onComplete?.Invoke();
                 return;
             }
-
-            // Chuyển đổi start và target sang Local Canvas Pixels
+            
             Vector2 screenStart = RectTransformUtility.WorldToScreenPoint(_uiCamera, startWorldPos);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(container, screenStart, _uiCamera, out Vector2 localStart);
 
@@ -141,19 +139,16 @@ namespace BusJam
                 GameObject coin = GetCoin();
                 RectTransform coinRect = coin.GetComponent<RectTransform>();
                 CanvasGroup cg = coin.GetComponent<CanvasGroup>();
-
-                // Khởi tạo trạng thái hoàn toàn vô hình
+                
                 cg.alpha = 0f;
                 coinRect.anchoredPosition = localStart;
                 coinRect.localScale = Vector3.zero;
                 coin.SetActive(true);
-
-                // Điểm nổ bung ngẫu nhiên quanh tâm
+                
                 Vector2 randomDir = UnityEngine.Random.insideUnitCircle.normalized;
                 float dist = UnityEngine.Random.Range(burstRadius * 0.6f, burstRadius);
                 Vector2 burstLocal = localStart + randomDir * dist;
-
-                // Điểm uốn cong đường bay Catmull-Rom
+                
                 Vector2 flightDir = (localTarget - burstLocal).normalized;
                 Vector2 normal = new Vector2(-flightDir.y, flightDir.x);
                 float curveSide = (coinIndex % 2 == 0) ? 1f : -1f;
@@ -169,26 +164,21 @@ namespace BusJam
 
                 Sequence seq = DOTween.Sequence();
                 seq.SetUpdate(true);
-                // Liên kết với chính CoinFlyEffect (luôn luôn active) để không bao giờ bị kill oan
                 seq.SetLink(gameObject);
-
-                // Giai đoạn 1: Chờ delay, sau đó vừa Fade In vừa nổ bung (Burst)
+                
                 seq.AppendInterval(delay);
                 seq.Append(cg.DOFade(1f, 0.08f));
                 seq.Join(coinRect.DOScale(1f, burstDuration * 0.6f).SetEase(Ease.OutBack));
                 seq.Join(coinRect.DOAnchorPos(burstLocal, burstDuration).SetEase(Ease.OutQuad));
-
-                // Giai đoạn 2: Lượn vòng cung bay về HUD Icon
+                
                 seq.Append(coinRect.DOLocalPath(localPath, flyDuration, PathType.CatmullRom)
                     .SetEase(Ease.InQuad));
                 seq.Join(coinRect.DOScale(0.85f, flyDuration * 0.5f));
-
-                // Giai đoạn 3: Chạm đích
+                
                 seq.OnComplete(() =>
                 {
                     ReturnCoin(coin);
-
-                    // Âm thanh tích xu pitch tăng dần
+                    
                     float pitch = Mathf.Lerp(minPitch, maxPitch, (float)coinIndex / count);
                     if (AudioManager.Instance != null)
                     {
