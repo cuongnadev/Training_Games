@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1927eb3f232bd04fad21e11693defc4, type: 3}
+  m_Name: Level_14
+  m_EditorClassIdentifier: 
+  levelNumber: 14
+  gridWidth: 9
+  gridHeight: 12
+  unlockedSlots: 6
+  vehicles:
+  - headCell: {x: 0, y: 7}
+    kind: 1
+    color: 1
+    dir: 0
+  - headCell: {x: 6, y: 6}
+    kind: 1
+    color: 3
+    dir: 3
+  - headCell: {x: 0, y: 3}
+    kind: 0
+    color: 3
+    dir: 0
+  - headCell: {x: 6, y: 2}
+    kind: 1
+    color: 1
+    dir: 0
+  - headCell: {x: 5, y: 9}
+    kind: 0
+    color: 0
+    dir: 0
+  - headCell: {x: 4, y: 0}
+    kind: 1
+    color: 0
+    dir: 1
+  - headCell: {x: 4, y: 11}
+    kind: 1
+    color: 0
+    dir: 0
+  - headCell: {x: 1, y: 2}
+    kind: 0
+    color: 0
+    dir: 0
+  - headCell: {x: 7, y: 4}
+    kind: 0
+    color: 3
+    dir: 3
+  - headCell: {x: 3, y: 2}
+    kind: 0
+    color: 1
+    dir: 3
+  passengerColors: 0100000001000000010000000100000003000000030000000300000003000000030000000300000003000000030000000300000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000100000001000000010000000000000000000000000000000000000000000000000000000000000000000000010000000100000001000000010000000300000003000000030000000300000001000000010000000100000001000000
+  minSlotsRequired: 2
+  blockedVehicles: 5
+  maxChainDepth: 3
+  estimatedWinRate: 0.825

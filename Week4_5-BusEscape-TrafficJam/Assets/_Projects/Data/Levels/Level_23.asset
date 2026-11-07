@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1927eb3f232bd04fad21e11693defc4, type: 3}
+  m_Name: Level_23
+  m_EditorClassIdentifier: 
+  levelNumber: 23
+  gridWidth: 9
+  gridHeight: 12
+  unlockedSlots: 6
+  vehicles:
+  - headCell: {x: 6, y: 2}
+    kind: 0
+    color: 1
+    dir: 1
+  - headCell: {x: 6, y: 4}
+    kind: 0
+    color: 0
+    dir: 2
+  - headCell: {x: 2, y: 4}
+    kind: 1
+    color: 3
+    dir: 1
+  - headCell: {x: 5, y: 8}
+    kind: 0
+    color: 1
+    dir: 2
+  - headCell: {x: 6, y: 9}
+    kind: 1
+    color: 3
+    dir: 2
+  - headCell: {x: 0, y: 6}
+    kind: 0
+    color: 1
+    dir: 2
+  - headCell: {x: 2, y: 5}
+    kind: 0
+    color: 0
+    dir: 1
+  - headCell: {x: 2, y: 8}
+    kind: 1
+    color: 3
+    dir: 1
+  - headCell: {x: 3, y: 11}
+    kind: 0
+    color: 1
+    dir: 0
+  - headCell: {x: 5, y: 11}
+    kind: 0
+    color: 0
+    dir: 1
+  - headCell: {x: 4, y: 1}
+    kind: 0
+    color: 1
+    dir: 0
+  - headCell: {x: 2, y: 2}
+    kind: 0
+    color: 0
+    dir: 1
+  - headCell: {x: 8, y: 7}
+    kind: 0
+    color: 3
+    dir: 1
+  - headCell: {x: 8, y: 0}
+    kind: 0
+    color: 3
+    dir: 1
+  - headCell: {x: 1, y: 10}
+    kind: 0
+    color: 0
+    dir: 2
+  passengerColors: 010000000100000003000000030000000100000001000000030000000300000001000000010000000100000001000000010000000100000000000000000000000300000003000000010000000100000003000000030000000300000003000000030000000300000000000000000000000000000000000000030000000300000003000000030000000100000001000000010000000100000003000000030000000000000000000000030000000300000001000000010000000000000000000000030000000300000003000000030000000000000000000000030000000300000000000000000000000100000001000000000000000000000000000000000000000000000000000000
+  minSlotsRequired: 3
+  blockedVehicles: 11
+  maxChainDepth: 4
+  estimatedWinRate: 0.475

@@ -59,11 +59,15 @@ namespace BusJam
                 float viewH = c.orthographicSize * 2f;
                 float viewW = viewH * c.aspect;
                 Vector3 cp = c.transform.position;
-
-                float left = cp.x - viewW * 0.5f + viewW * sideMargin;
-                float right = cp.x + viewW * 0.5f - viewW * sideMargin;
-                float bottom = cp.y - viewH * 0.5f + viewH * bottomMargin;
-                float top = cp.y + viewH * 0.5f - viewH * topReserve;
+                
+                var fitter = c.GetComponent<CameraFitter>();
+                float refH = (fitter != null && fitter.ReferenceViewHeight > 0f) ? fitter.ReferenceViewHeight : viewH;
+                
+                float viewTop = cp.y + viewH * 0.5f;
+                float left    = cp.x - viewW * 0.5f + viewW * sideMargin;
+                float right   = cp.x + viewW * 0.5f - viewW * sideMargin;
+                float top     = viewTop - refH * topReserve;
+                float bottom  = viewTop - refH + refH * bottomMargin;
 
                 int totalW = width + 2 * roadSide;
                 int totalH = height + roadBottom + roadTop;

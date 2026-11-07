@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 7548820329786640093}
   - component: {fileID: 3920580939526382317}
   - component: {fileID: 4931959604193083321}
+  - component: {fileID: -5422527497053922990}
   m_Layer: 0
   m_Name: Vehicle
   m_TagString: Untagged
@@ -167,6 +168,18 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 0.0001, y: 0.0001}
   m_EdgeRadius: 0
+--- !u!210 &-5422527497053922990
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2312968572213766948}
+  m_Enabled: 1
+  m_SortingLayerID: 1039919961
+  m_SortingLayer: 3
+  m_SortingOrder: 1000
+  m_SortAtRoot: 0
 --- !u!1 &3513630924229907211
 GameObject:
   m_ObjectHideFlags: 0
@@ -261,6 +274,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4645110459430004409}
   - component: {fileID: 2350195835318264979}
+  - component: {fileID: 1163174620304185788}
   m_Layer: 0
   m_Name: BoardCounter
   m_TagString: Untagged
@@ -304,6 +318,18 @@ MonoBehaviour:
   extraOffsetCells: {x: -0.2, y: 0}
   normalTextColor: {r: 0.23921569, g: 0.18039216, b: 0.14901961, a: 1}
   fullTextColor: {r: 0.16470589, g: 0.26666668, b: 0.23137255, a: 1}
+--- !u!210 &1163174620304185788
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8151906864085048848}
+  m_Enabled: 1
+  m_SortingLayerID: 1039919961
+  m_SortingLayer: 3
+  m_SortingOrder: 1000
+  m_SortAtRoot: 0
 --- !u!1 &9072403213620369585
 GameObject:
   m_ObjectHideFlags: 0

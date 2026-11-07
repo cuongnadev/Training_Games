@@ -15,37 +15,30 @@ MonoBehaviour:
   levelNumber: 5
   gridWidth: 9
   gridHeight: 12
+  unlockedSlots: 6
   vehicles:
-  - headCell: {x: 3, y: 9}
+  - headCell: {x: 8, y: 11}
     kind: 0
     color: 0
     dir: 1
-  - headCell: {x: 3, y: 4}
-    kind: 1
-    color: 3
-    dir: 0
-  - headCell: {x: 5, y: 4}
-    kind: 1
+  - headCell: {x: 0, y: 9}
+    kind: 0
     color: 1
-    dir: 3
-  - headCell: {x: 5, y: 2}
+    dir: 0
+  - headCell: {x: 4, y: 7}
     kind: 0
     color: 0
-    dir: 0
-  - headCell: {x: 2, y: 8}
-    kind: 1
-    color: 3
-    dir: 0
-  - headCell: {x: 6, y: 5}
-    kind: 1
-    color: 1
     dir: 3
-  - headCell: {x: 1, y: 8}
+  - headCell: {x: 6, y: 8}
     kind: 0
-    color: 0
-    dir: 2
-  - headCell: {x: 5, y: 0}
-    kind: 1
-    color: 3
+    color: 1
     dir: 1
-  passengerColors: 030000000100000001000000010000000000000001000000030000000000000003000000030000000000000001000000030000000300000001000000030000000300000001000000000000000000000000000000000000000000000001000000030000000100000000000000030000000300000003000000000000000100000003000000030000000300000000000000000000000100000003000000030000000100000003000000
+  - headCell: {x: 1, y: 0}
+    kind: 1
+    color: 0
+    dir: 3
+  passengerColors: 00000000000000000100000001000000010000000100000001000000010000000100000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  minSlotsRequired: 2
+  blockedVehicles: 0
+  maxChainDepth: 0
+  estimatedWinRate: 1

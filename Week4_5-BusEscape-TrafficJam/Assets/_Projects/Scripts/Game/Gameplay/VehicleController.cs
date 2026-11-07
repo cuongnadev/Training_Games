@@ -292,6 +292,7 @@ namespace BusJam
 
             if (!_slots.TryReserve(this, out _slotIndex))
             {
+                GameFeedback.NoSlot();
                 NoSlot?.Invoke(this);
                 return;
             }

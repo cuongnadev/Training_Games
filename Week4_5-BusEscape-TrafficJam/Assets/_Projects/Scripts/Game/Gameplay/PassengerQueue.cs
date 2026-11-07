@@ -1,14 +1,12 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace BusJam
 {
     public class PassengerQueue : MonoBehaviour
     {
-        [SerializeField] private PassengerController passengerPrefab;
         [SerializeField] private float slideSpeedCells = 12f;
-        [SerializeField] private int baseSortingOrder = 5000;
 
         [Header("Door Spawning")]
         [SerializeField] private Transform doorPoint;
@@ -36,6 +34,9 @@ namespace BusJam
         private float VLen => Mathf.Max(0f, DoorY - RowY);
         private Vector3 Corner => new Vector3(DoorX, RowY, Z);
 
+        private PassengerPool Pool =>
+            PoolManager.Instance != null ? PoolManager.Instance.Passengers : null;
+
         private Vector3 QueuePos(int index)
         {
             float d = index * _layout.QueueStep;
@@ -46,47 +47,27 @@ namespace BusJam
             return new Vector3(DoorX, RowY + (d - HLen), Z);
         }
 
-        private int Capacity()
-        {
-            return Mathf.Max(
-                1,
-                Mathf.FloorToInt((HLen + VLen) / _layout.QueueStep) + 1
-            );
-        }
+        private int Capacity() =>
+            Mathf.Max(1, Mathf.FloorToInt((HLen + VLen) / _layout.QueueStep) + 1);
 
         private bool OnColumn(Vector3 p) => p.y > RowY + 0.01f;
 
-        private PassengerPool Pool =>
-            PoolManager.Instance != null ? PoolManager.Instance.Passengers : null;
-
-        public void Setup(ParkSlotController layout, IList<GameColor> colors)
+        public void Setup(ParkSlotController layout, IReadOnlyList<GameColor> colors)
         {
             _layout = layout;
-            Clear();
+            ReleaseAll();
 
-            foreach (var c in colors)
-                _pending.Enqueue(c);
+            for (int i = 0; i < colors.Count; i++)
+                _pending.Enqueue(colors[i]);
 
             ReFill(false);
+            NotifyCount();
         }
 
         public void Clear()
         {
-            var pool = Pool;
-
-            foreach (var p in _visible)
-            {
-                if (p == null)
-                    continue;
-
-                if (pool != null)
-                    pool.Release(p);
-                else
-                    p.gameObject.SetActive(false);
-            }
-
-            _visible.Clear();
-            _pending.Clear();
+            ReleaseAll();
+            NotifyCount();
         }
 
         public PassengerController Dequeue()
@@ -98,6 +79,7 @@ namespace BusJam
             _visible.RemoveAt(0);
 
             ReFill(false);
+            NotifyCount();
 
             return p;
         }
@@ -106,22 +88,17 @@ namespace BusJam
         {
             int max = Capacity();
             int firstNew = _visible.Count;
+            var pool = Pool;
 
             while (_visible.Count < max && _pending.Count > 0)
             {
-                var pool = Pool;
-
-                if (pool != null)
-                    pool.EnsureInitialized(passengerPrefab);
-
                 var p = pool != null ? pool.Get(transform) : null;
 
                 if (p == null)
                 {
                     Debug.LogError(
-                        "[PassengerQueue] Missing PoolManager or PassengerPool in the scene.",
-                        this
-                    );
+                        "[PassengerQueue] Missing PoolManager/PassengerPool or its prefab is not assigned.",
+                        this);
                     break;
                 }
 
@@ -137,8 +114,7 @@ namespace BusJam
                 Vector3 target = QueuePos(i);
                 bool isNew = i >= firstNew;
                 var pc = _visible[i];
-
-                pc.SetOrder(pc.BaseOrder - i);
+                pc.SetSortingOrder(1000 - i);
 
                 if (isNew)
                 {
@@ -152,18 +128,16 @@ namespace BusJam
                     var path = new List<Vector3> { door };
 
                     if (OnColumn(target))
+                    {
                         path.Add(target);
+                    }
                     else
                     {
                         path.Add(Corner);
                         path.Add(target);
                     }
 
-                    pc.WalkPath(
-                        path,
-                        walkSpeed,
-                        (i - firstNew) * spawnInterval
-                    );
+                    pc.WalkPath(path, walkSpeed, (i - firstNew) * spawnInterval);
                 }
                 else if (snap)
                 {
@@ -191,5 +165,25 @@ namespace BusJam
                 }
             }
         }
+
+        private void ReleaseAll()
+        {
+            var pool = Pool;
+
+            for (int i = 0; i < _visible.Count; i++)
+            {
+                var p = _visible[i];
+                if (p == null) continue;
+
+                if (pool != null) pool.Release(p);
+                else p.gameObject.SetActive(false);
+            }
+
+            _visible.Clear();
+            _pending.Clear();
+        }
+
+        private void NotifyCount() =>
+            EventBus<PassengersChangedEvent>.Publish(new PassengersChangedEvent(Count));
     }
 }

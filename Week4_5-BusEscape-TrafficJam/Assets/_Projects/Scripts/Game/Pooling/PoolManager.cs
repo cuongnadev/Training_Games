@@ -34,6 +34,12 @@ namespace BusJam
             if (Instance == this) Instance = null;
         }
 
+        public void PrepareForLevel(LevelDataSO level)
+        {
+            if (vehicles != null) vehicles.EnsureCapacity(level.Vehicles.Count);
+            if (passengers != null) passengers.EnsureCapacity(level.PassengerColors.Count);
+        }
+
         public void ReleaseTransientObjects()
         {
             if (vfx != null) vfx.ReleaseAll();

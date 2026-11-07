@@ -8,14 +8,16 @@ namespace BusJam
     {
         private readonly T _prefab;
         private readonly Transform _parent;
-        private readonly ObjectPool<T> _pool;
         private readonly string _label;
-        private bool _prewarmed;
+        private readonly ObjectPool<T> _pool;
+        private readonly List<T> _scratch = new List<T>();
+        private int _baseline;
 
         public int CountAll => _pool.CountAll;
         public int CountActive => _pool.CountActive;
+        public int CountInactive => _pool.CountInactive;
         
-        public ComponentPool(T prefab, Transform parent, string label, int maxSize = 256)
+        public ComponentPool(T prefab, Transform parent, string label)
         {
             _prefab = prefab;
             _parent = parent;
@@ -25,24 +27,28 @@ namespace BusJam
                 actionOnGet: OnGet,
                 actionOnRelease: OnRelease,
                 actionOnDestroy: OnDestroyItem,
-                collectionCheck: false,
+                collectionCheck: Application.isEditor,
                 defaultCapacity: 32,
-                maxSize: maxSize
+                maxSize: int.MaxValue
             );
         }
 
-        public void Prewarm(int count)
+        public void EnsureCapacity(int target)
         {
-            var tmp = new List<T>(count);
-            for (int i = 0; i < count; i++) tmp.Add(_pool.Get());
-            for (int i = 0; i < tmp.Count; i++) _pool.Release(tmp[i]);
-            _prewarmed = true;
+            _baseline = Mathf.Max(_baseline, target);
+            int missing = target - _pool.CountAll;
+            if (missing <= 0) return;
+
+            int take = _pool.CountInactive + missing;
+            for(int i = 0; i < take; i++) _scratch.Add(_pool.Get());
+            for(int i = 0; i < _scratch.Count; i++) _pool.Release(_scratch[i]);
+            _scratch.Clear();
         }
 
         public T Get(Transform parent = null)
         {
             var item = _pool.Get();
-            item.transform.SetParent(parent, false);
+            item.transform.SetParent(parent != null ? parent : _parent, false);
             return item;
         }
 
@@ -55,18 +61,23 @@ namespace BusJam
 
         private T Create()
         {
-            if(_prewarmed)
-                Debug.LogWarning($"[Pool:{_label}] Pool cạn, đang tạo thêm object. Hãy tăng Prewarm Count.");
             var item = Object.Instantiate(_prefab, _parent);
+            item.name = $"{_label}_{_pool.CountAll + 1:00}";
+            LogGrowth();
             return item;
         }
-
         private static void OnGet(T item) => item.gameObject.SetActive(true);
         private static void OnRelease(T item) => item.gameObject.SetActive(false);
-
         private static void OnDestroyItem(T item)
         {
             if (item != null) Object.Destroy(item.gameObject);
+        }
+        
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        private void LogGrowth()
+        {
+            if (_baseline > 0 && _pool.CountAll + 1 > _baseline)
+                Debug.Log($"[Pool:{_label}] Grew to {_pool.CountAll + 1} (prepared {_baseline}).");
         }
     }
 }

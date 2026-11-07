@@ -1,28 +1,37 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace BusJam
 {
     [RequireComponent(typeof(SpriteRenderer))]
     public class PassengerController : MonoBehaviour
     {
-        [SerializeField] private int sortingOrder = 5000;
-
+        private SortingGroup _sortingGroup;
         private SpriteRenderer _sr;
         private Coroutine _slide;
 
         public GameColor Color { get; private set; }
-        public int BaseOrder => sortingOrder;
 
         private SpriteRenderer SR => _sr != null ? _sr : (_sr = GetComponent<SpriteRenderer>());
+        
+        private void Awake()
+        {
+            _sortingGroup = GetComponent<SortingGroup>();
+        }
+        
+        public void SetSortingOrder(int order)
+        {
+            if (_sortingGroup != null)
+                _sortingGroup.sortingOrder = order;
+        }
 
         public void Init(GameColor color, float worldHeight)
         {
             Color = color;
             SR.color = color.ToColor();
-            SR.sortingOrder = sortingOrder;
-
+            
             var sprite = SR.sprite;
             if (sprite != null && sprite.bounds.size.y > 0f)
             {

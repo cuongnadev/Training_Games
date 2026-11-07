@@ -1,5 +1,7 @@
 using System;
+using DG.Tweening;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace BusJam
 {
@@ -11,14 +13,15 @@ namespace BusJam
         Step,
         Thud,
         Win,
-        Lose
+        Lose,
+        Coin,
+        Popup,
+        Button,
     }
 
     public sealed class AudioManager : MonoBehaviour
     {
         public static AudioManager Instance { get; private set; }
-
-        private const string MuteKey = "BusJam.Mute";
 
         [Serializable]
         public class Entry
@@ -29,23 +32,30 @@ namespace BusJam
             public Vector2 pitchRange = new Vector2(0.95f, 1.05f);
         }
 
+        [Header("SFX channel")]
         [SerializeField] private Entry[] entries;
         [SerializeField, Range(1, 16)] private int voices = 8;
-        [SerializeField, Range(0f, 1f)] private float masterVolume = 0.8f;
+        [SerializeField, Range(0f, 1f)] private float sfxVolume = 0.8f;
         [SerializeField] private bool synthesizeMissing = true;
+        
+        [Header("BGM channel")]
+        [SerializeField] private AudioClip bgmClip;
+        [SerializeField, Range(0f, 1f)] private float bgmVolume = 0.5f;
+        [SerializeField, Min(0f)] private float bgmFadeSeconds = 0.5f;
 
         [Header("Footstep Combo")]
         [SerializeField] private float stepComboWindow = 0.45f;
         [SerializeField] private float stepPitchStep = 0.04f;
         [SerializeField] private float stepPitchMax = 1.5f;
 
-        private AudioSource[] _sources;
+        private AudioSource[] _sfxSources;
+        private AudioSource _bgmSource;
         private Entry[] _lookup;
+        private Tween _bgmTween;
         private int _next;
         private float _lastStepTime = -10f;
         private float _stepPitch = 1f;
-
-        public bool Muted { get; private set; }
+        private bool _musicStarted;
 
         private void Awake()
         {
@@ -57,57 +67,103 @@ namespace BusJam
 
             Instance = this;
 
-            Muted = PlayerPrefs.GetInt(MuteKey, 0) == 1;
-
-            _sources = new AudioSource[voices];
-
+            _sfxSources = new AudioSource[voices];
             for (int i = 0; i < voices; i++)
             {
                 var s = gameObject.AddComponent<AudioSource>();
                 s.playOnAwake = false;
                 s.spatialBlend = 0f;
-                _sources[i] = s;
+                _sfxSources[i] = s;
             }
+            
+            var bgmObject = new GameObject("BGM Source");
+            bgmObject.transform.SetParent(transform, false);
+            _bgmSource = bgmObject.AddComponent<AudioSource>();
+            _bgmSource.playOnAwake = false;
+            _bgmSource.loop = true;
+            _bgmSource.spatialBlend = 0f;
+            _bgmSource.clip = bgmClip;
+            _bgmSource.volume = 0f;
 
             BuildLookup();
         }
 
+        private void OnEnable()
+        {
+            EventBus<SettingsChangedEvent>.Subscribe(OnSettingsChanged);
+            EventBus<GameStateChangedEvent>.Subscribe(OnStateChanged);
+        }
+        
+        private void OnDisable()
+        {
+            EventBus<SettingsChangedEvent>.Unsubscribe(OnSettingsChanged);
+            EventBus<GameStateChangedEvent>.Unsubscribe(OnStateChanged);
+        }
+
         private void OnDestroy()
         {
-            if (Instance == this)
-                Instance = null;
+            _bgmTween?.Kill();
+            if (Instance == this) Instance = null;
         }
 
-        public void SetMuted(bool muted)
+        private void OnSettingsChanged(SettingsChangedEvent e) => ApplyMusicSetting();
+
+        private void OnStateChanged(GameStateChangedEvent e)
         {
-            Muted = muted;
-            PlayerPrefs.SetInt(MuteKey, muted ? 1 : 0);
+            if (e.State == GameState.Menu || e.State == GameState.Playing)
+            {
+                StartMusic();
+            }
         }
 
-        public void Play(Sfx sfx, float volumeScale = 1f, float pitchScale = 1f)
+        private void StartMusic()
         {
-            if (Muted || _lookup == null)
-                return;
+            if (_musicStarted || bgmClip == null) return;
+            
+            _musicStarted = true;
+            _bgmSource.volume = 0f;
+            _bgmSource.Play();
+            ApplyMusicSetting();
+        }
+
+        private void ApplyMusicSetting()
+        {
+            if (!_musicStarted) return;
+
+            float target = SettingsManager.IsMusicOn ? bgmVolume : 0f;
+            
+            _bgmTween?.Kill();
+            _bgmTween = DOTween.To(() => _bgmSource.volume, v => _bgmSource.volume = v, target, bgmFadeSeconds)
+                .SetUpdate(true)
+                .SetLink(gameObject);
+        }
+        
+        public void Play(
+            Sfx sfx,
+            float volumeScale = 1f,
+            float pitchScale = 1f)
+        {
+            if (!SettingsManager.IsSoundOn || _lookup == null) return;
 
             var e = _lookup[(int)sfx];
-
-            if (e == null || e.clips == null || e.clips.Length == 0)
-                return;
+            if (e == null || e.clips == null || e.clips.Length == 0) return;
 
             var clip = e.clips[
                 e.clips.Length == 1
                     ? 0
-                    : UnityEngine.Random.Range(0, e.clips.Length)
+                    : Random.Range(0, e.clips.Length)
             ];
+            if (clip == null) return;
 
-            if (clip == null)
-                return;
+            var src = _sfxSources[_next];
+            _next = (_next + 1) % _sfxSources.Length;
 
-            var src = _sources[_next];
-            _next = (_next + 1) % _sources.Length;
+            src.pitch = Random.Range(
+                e.pitchRange.x,
+                e.pitchRange.y
+            ) * pitchScale;
 
-            src.pitch = UnityEngine.Random.Range(e.pitchRange.x, e.pitchRange.y) * pitchScale;
-            src.volume = e.volume * masterVolume * volumeScale;
+            src.volume = e.volume * sfxVolume * volumeScale;
             src.clip = clip;
             src.Play();
         }
@@ -164,35 +220,37 @@ namespace BusJam
             switch (sfx)
             {
                 case Sfx.Click:
-                    return Tone("sfx_click", 0.06f,
-                        t => Mathf.Sin(2f * Mathf.PI * 900f * t), 40f);
+                    return Tone("sfx_click", 0.06f, t => Mathf.Sin(2f * Mathf.PI * 900f * t), 40f);
 
                 case Sfx.Honk:
-                    return Tone("sfx_honk", 0.28f,
-                        t => Sq(420f, t) * 0.5f + Sq(530f, t) * 0.5f,
-                        6f, 0.35f);
+                    return Tone("sfx_honk", 0.28f, t => Sq(420f, t) * 0.5f + Sq(530f, t) * 0.5f, 6f, 0.35f);
 
                 case Sfx.Engine:
-                    return Tone("sfx_engine", 0.55f,
-                        t => Saw(70f + 220f * t * t / 0.3f, t) * 0.7f,
-                        2.2f, 0.4f);
+                    return Tone("sfx_engine", 0.55f, t => Saw(70f + 220f * t * t / 0.3f, t) * 0.7f, 2.2f, 0.4f);
 
                 case Sfx.Step:
                     return Noise("sfx_step", 0.045f, 90f);
 
                 case Sfx.Thud:
                     return Tone("sfx_thud", 0.16f,
-                        t => Mathf.Sin(2f * Mathf.PI * (140f - 280f * t) * t)
-                            + Hash(t) * 0.3f,
-                        18f);
+                        t => Mathf.Sin(2f * Mathf.PI * (140f - 280f * t) * t) + Hash(t) * 0.3f, 18f);
 
                 case Sfx.Win:
-                    return Arp("sfx_win",
-                        new[] { 523f, 659f, 784f, 1047f }, 0.11f);
+                    return Arp("sfx_win", new[] { 523f, 659f, 784f, 1047f }, 0.11f);
 
-                default:
-                    return Arp("sfx_lose",
-                        new[] { 392f, 330f, 262f, 196f }, 0.16f);
+                case Sfx.Lose:
+                    return Arp("sfx_lose", new[] { 392f, 330f, 262f, 196f }, 0.16f);
+
+                case Sfx.Coin:
+                    return Tone("sfx_coin", 0.18f,
+                        t => Mathf.Sin(2f * Mathf.PI * 1320f * t) + 0.5f * Mathf.Sin(2f * Mathf.PI * 1980f * t),
+                        14f, 0.4f);
+
+                case Sfx.Popup:
+                    return Tone("sfx_popup", 0.14f, t => Mathf.Sin(2f * Mathf.PI * (500f + 900f * t) * t), 16f);
+
+                default: 
+                    return Tone("sfx_button", 0.05f, t => Mathf.Sin(2f * Mathf.PI * 1200f * t), 50f, 0.5f);
             }
         }
 

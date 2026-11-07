@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7195831713854777431}
   - component: {fileID: 8861336458891823406}
   - component: {fileID: -4276715629019824143}
+  - component: {fileID: -6746842624697257636}
   m_Layer: 0
   m_Name: Passenger
   m_TagString: Untagged
@@ -98,3 +99,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sortingOrder: 5000
+--- !u!210 &-6746842624697257636
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5663112514099186589}
+  m_Enabled: 1
+  m_SortingLayerID: 1979239161
+  m_SortingLayer: 4
+  m_SortingOrder: 1000
+  m_SortAtRoot: 0

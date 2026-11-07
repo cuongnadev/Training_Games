@@ -42,7 +42,7 @@ namespace BusJam
         {
             if (prefab == null) return;
             var pool = new ComponentPool<ParticleSystem>(prefab, transform, $"Vfx.{type}");
-            pool.Prewarm(prewarm);
+            pool.EnsureCapacity(prewarm);
             _pools[type] = pool;
         }
 
@@ -81,8 +81,10 @@ namespace BusJam
         private void Release(Active a)
         {
             if (a.ps == null) return;
-            a.ps.Stop(true,  ParticleSystemStopBehavior.StopEmittingAndClear);
+            a.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
             if (_pools.TryGetValue(a.type, out var pool)) pool.Release(a.ps);
+            else a.ps.gameObject.SetActive(false);
         }
     }
 }

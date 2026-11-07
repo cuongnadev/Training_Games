@@ -25,8 +25,6 @@ namespace BusJam
 
         [Header("Layout")]
         [SerializeField, Min(1)] private int slotCount = 6;
-        [Tooltip("Number of unlocked slots. LevelManager overrides this for each level.")]
-        [SerializeField, Min(1)] private int unlockedSlots = 6;
         [SerializeField] private float slotHeightCells = 3.3f;
         [SerializeField] private float slotGapCells = 0.3f;
         [SerializeField] private float queueGapCells = 0.8f;
@@ -41,6 +39,7 @@ namespace BusJam
         [Header("Visual")]
         [SerializeField] private Color slotColor = new Color(1f, 1f, 1f, 0.25f);
         [SerializeField] private Sprite slotSprite;
+        [SerializeField] private Sprite lockedSlotSprite;
         [SerializeField] private float slotSpriteRotation = 0f;
         [SerializeField] private float parkedVehicleRotation = 0f;
         [SerializeField, Range(0.5f, 1.5f)] private float slotSpriteScale = 0.9f;
@@ -50,22 +49,21 @@ namespace BusJam
         [SerializeField] private float departBackCells = 2f;
         [SerializeField] private float departRightExtraCells = 3f;
 
+        private int _unlockedSlots = SlotRules.DefaultUnlocked;
         private readonly List<Slot> _slots = new List<Slot>();
         private readonly List<PassengerController> _flying = new List<PassengerController>();
         private ObjectPool<SpriteRenderer> _visualPool;
         private Coroutine _loop;
         private int _inFlight;
         private bool _finished;
-        private bool _stuckFired;
 
         private static Sprite _white;
 
         public event Action AllPassengersBoarded;
-        public event Action Stuck;
         public event Action<VehicleController> VehicleDeparted;
 
         public int SlotCount => slotCount;
-        public int UnlockedCount => Mathf.Clamp(unlockedSlots, 1, slotCount);
+        public int UnlockedCount => Mathf.Clamp(_unlockedSlots, 1, slotCount);
 
         public bool HasFreeSlot
         {
@@ -94,7 +92,7 @@ namespace BusJam
 
         public void SetUnlockedCount(int count)
         {
-            unlockedSlots = Mathf.Clamp(count, 1, Mathf.Max(1, slotCount));
+            _unlockedSlots = Mathf.Clamp(count, 1, Mathf.Max(1, slotCount));
             RefreshSlotTint();
         }
         public float CellSize => grid.CellSize;
@@ -118,9 +116,15 @@ namespace BusJam
 
         public Vector3 QueuePosition(int index)
             => new Vector3(LeftX + grid.CellSize * 0.5f + index * queueStepCells * grid.CellSize, QueueY, grid.transform.position.z);
-
+        
         private void Start()
         {
+            if (GameManager.Instance != null && GameManager.Instance.State == GameState.Menu)
+            {
+                gameObject.SetActive(false);
+                return;
+            }
+    
             EnsureBuilt();
             if (_loop == null) _loop = StartCoroutine(BoardingLoop());
         }
@@ -174,26 +178,42 @@ namespace BusJam
                 go.name = $"Slot {i}";
                 go.transform.position = SlotCenter(i);
 
-                if (slotSprite != null)
-                {
-                    Vector2 size = slotSprite.bounds.size;
-                    float scale = Mathf.Min(SlotHeight / size.y, Pitch * 0.95f / size.x) * slotSpriteScale;
-
-                    sr.sprite = slotSprite;
-                    go.transform.rotation = Quaternion.Euler(0f, 0f, slotSpriteRotation);
-                    go.transform.localScale = new Vector3(scale, scale, 1f);
-                }
-                else
-                {
-                    sr.sprite = WhiteSprite();
-                    go.transform.rotation = Quaternion.identity;
-                    go.transform.localScale = new Vector3(Pitch * 0.9f, SlotHeight, 1f);
-                }
-
                 _slots.Add(new Slot { visual = go.transform, sr = sr });
+                ApplySlotVisual(i);
             }
+        }
+        
+        private void RefreshSlotVisuals()
+        {
+            for (int i = 0; i < _slots.Count; i++) ApplySlotVisual(i);
+        }
+        
+        private void ApplySlotVisual(int index)
+        {
+            var sr = _slots[index].sr;
+            if (sr == null) return;
 
-            RefreshSlotTint();
+            bool open = index < UnlockedCount;
+            Sprite sprite = open ? slotSprite : (lockedSlotSprite != null ? lockedSlotSprite : slotSprite);
+            var t = sr.transform;
+
+            if (sprite != null)
+            {
+                Vector2 size = sprite.bounds.size;
+                float scale = Mathf.Min(SlotHeight / size.y, Pitch * 0.95f / size.x) * slotSpriteScale;
+
+                sr.sprite = sprite;
+                t.rotation = Quaternion.Euler(0f, 0f, slotSpriteRotation);
+                t.localScale = new Vector3(scale, scale, 1f);
+                sr.color = (open || lockedSlotSprite != null) ? Color.white : lockedColor;
+            }
+            else
+            {
+                sr.sprite = WhiteSprite();
+                t.rotation = Quaternion.identity;
+                t.localScale = new Vector3(Pitch * 0.9f, SlotHeight, 1f);
+                sr.color = open ? slotColor : lockedColor;
+            }
         }
 
         private void RefreshSlotTint()
@@ -223,7 +243,6 @@ namespace BusJam
 
             _inFlight = 0;
             _finished = false;
-            _stuckFired = false;
             _loop = StartCoroutine(BoardingLoop());
         }
 
@@ -249,7 +268,6 @@ namespace BusJam
         public void NotifyArrived(int index)
         {
             _slots[index].arrived = true;
-            _stuckFired = false;
         }
 
         public void BuildPath(Vector2 centerCell, Direction dir, int slotIndex, List<Vector3> result)
@@ -302,14 +320,9 @@ namespace BusJam
                 if (queue == null || !queue.HasFront) continue;
 
                 int index = FindSlotFor(queue.FrontColor);
-                if (index < 0)
-                {
-                    CheckStuck();
-                    continue;
-                }
+                if (index < 0) continue;
 
                 _slots[index].seatsTaken++;
-                _stuckFired = false;
 
                 var passenger = queue.Dequeue();
                 _flying.Add(passenger);
@@ -362,7 +375,6 @@ namespace BusJam
             yield return vehicle.Depart(departBackCells, exitX);
 
             ClearSlot(slot);
-            _stuckFired = false;
             VehicleDeparted?.Invoke(vehicle);
             CheckFinished();
         }
@@ -388,26 +400,6 @@ namespace BusJam
             AllPassengersBoarded?.Invoke();
         }
 
-        private void CheckStuck()
-        {
-            if (_stuckFired || _inFlight > 0) return;
-
-            if (!HasAllOpenSlotsBlocked()) return;
-
-            _stuckFired = true;
-            Stuck?.Invoke();
-        }
-
-        private bool HasAllOpenSlotsBlocked()
-        {
-            for (int i = 0; i < UnlockedCount && i < _slots.Count; i++)
-            {
-                var s = _slots[i];
-                if (s.vehicle == null || !s.arrived || s.departing) return false;
-            }
-            return true;
-        }
-
         private static void ClearSlot(Slot s)
         {
             s.vehicle = null;
@@ -430,5 +422,9 @@ namespace BusJam
             _white = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
             return _white;
         }
+        
+        private void OnEnable() => EventBus<SlotsChangedEvent>.Subscribe(OnSlotsChanged);
+        private void OnDisable() => EventBus<SlotsChangedEvent>.Unsubscribe(OnSlotsChanged);
+        private void OnSlotsChanged(SlotsChangedEvent e) => SetUnlockedCount(e.Unlocked);
     }
 }

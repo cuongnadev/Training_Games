@@ -1,20 +1,24 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace BusJam
 {
     public sealed class VehicleManager : MonoBehaviour
     {
         [Header("References")]
-        [SerializeField] private ParkingGrid grid;
-        [SerializeField] private ParkSlotController slots;
-        [SerializeField] private VehicleController vehiclePrefab;
-        [SerializeField] private VehicleSpriteLibrary spriteLibrary;
-        [SerializeField] private Transform vehicleContainer;
+        [SerializeField] private ParkingGrid _grid;
+        [SerializeField] private ParkSlotController _slots;
+        [SerializeField] private VehicleSpriteLibrary _spriteLibrary;
+        [SerializeField] private Transform _vehicleContainer;
 
         private readonly List<VehicleController> _vehicles = new List<VehicleController>();
+        private bool _isValid;
 
         public IReadOnlyList<VehicleController> Vehicles => _vehicles;
+
+        private VehiclePool Pool =>
+            PoolManager.Instance != null ? PoolManager.Instance.Vehicles : null;
 
         public bool HasMovingVehicle
         {
@@ -22,12 +26,9 @@ namespace BusJam
             {
                 for (int i = 0; i < _vehicles.Count; i++)
                 {
-                    if (_vehicles[i] != null &&
-                        _vehicles[i].isActiveAndEnabled &&
-                        _vehicles[i].IsMoving)
-                    {
+                    var v = _vehicles[i];
+                    if (v != null && v.isActiveAndEnabled && v.IsMoving)
                         return true;
-                    }
                 }
 
                 return false;
@@ -36,30 +37,26 @@ namespace BusJam
 
         private void Awake()
         {
-            if (grid == null)
-                grid = FindObjectOfType<ParkingGrid>();
+            _isValid = true;
 
-            if (slots == null)
-                slots = FindObjectOfType<ParkSlotController>();
+            if (_grid == null)
+            {
+                Debug.LogError("[VehicleManager] Missing reference: _grid", this);
+                _isValid = false;
+            }
 
-            if (vehicleContainer == null)
-                vehicleContainer = transform;
+            if (_slots == null)
+            {
+                Debug.LogError("[VehicleManager] Missing reference: _slots", this);
+                _isValid = false;
+            }
+
+            if (_spriteLibrary == null)
+                Debug.LogWarning("[VehicleManager] _spriteLibrary is empty, vehicles rely on the prefab's own library.", this);
+
+            if (_vehicleContainer == null)
+                _vehicleContainer = transform;
         }
-
-        public void Configure(
-            ParkingGrid parkingGrid,
-            ParkSlotController parkSlots,
-            VehicleController prefab,
-            VehicleSpriteLibrary library)
-        {
-            grid = parkingGrid;
-            slots = parkSlots;
-            vehiclePrefab = prefab;
-            spriteLibrary = library;
-        }
-
-        private VehiclePool Pool =>
-            PoolManager.Instance != null ? PoolManager.Instance.Vehicles : null;
 
         public bool HasMovableVehicle()
         {
@@ -67,15 +64,10 @@ namespace BusJam
             {
                 var v = _vehicles[i];
 
-                if (v == null ||
-                    !v.isActiveAndEnabled ||
-                    v.HasEscaped ||
-                    v.IsMoving)
-                {
+                if (v == null || !v.isActiveAndEnabled || v.HasEscaped || v.IsMoving)
                     continue;
-                }
 
-                grid.CountFreeSteps(v, out var blocker);
+                _grid.CountFreeSteps(v, out var blocker);
 
                 if (blocker == null)
                     return true;
@@ -86,11 +78,7 @@ namespace BusJam
 
         public bool SpawnVehicles(IReadOnlyList<VehicleSpawnData> data)
         {
-            if (vehiclePrefab == null)
-            {
-                Debug.LogError("[VehicleManager] Vehicle Prefab is not assigned.", this);
-                return false;
-            }
+            if (!_isValid) return false;
 
             var pool = Pool;
 
@@ -100,21 +88,22 @@ namespace BusJam
                 return false;
             }
 
-            pool.EnsureInitialized(vehiclePrefab);
-
             ClearVehicles();
 
             for (int i = 0; i < data.Count; i++)
             {
-                var vehicle = pool.Get(vehicleContainer);
+                var vehicle = pool.Get(_vehicleContainer);
 
-                if (spriteLibrary != null &&
-                    vehicle.TryGetComponent(out VehicleView view))
+                if (vehicle == null)   // VehiclePool chưa gán prefab (lỗi đã log ở Awake của pool)
                 {
-                    view.SetLibrary(spriteLibrary);
+                    ClearVehicles();
+                    return false;
                 }
 
-                if (!vehicle.Init(grid, data[i], slots))
+                if (_spriteLibrary != null && vehicle.View != null)
+                    vehicle.View.SetLibrary(_spriteLibrary);
+
+                if (!vehicle.Init(_grid, data[i], _slots))
                 {
                     pool.Release(vehicle);
                     ClearVehicles();
@@ -130,30 +119,24 @@ namespace BusJam
 
         public void ClearVehicles()
         {
+            var pool = Pool;
+
             for (int i = 0; i < _vehicles.Count; i++)
             {
                 var vehicle = _vehicles[i];
-
-                if (vehicle == null)
-                    continue;
+                if (vehicle == null) continue;
 
                 vehicle.StopAllCoroutines();
 
-                if (grid != null)
-                    grid.Remove(vehicle);
+                if (_grid != null) _grid.Remove(vehicle);
 
-                var pool = Pool;
-
-                if (pool != null)
-                    pool.Release(vehicle);
-                else
-                    vehicle.gameObject.SetActive(false);
+                if (pool != null) pool.Release(vehicle);
+                else vehicle.gameObject.SetActive(false);
             }
 
             _vehicles.Clear();
 
-            if (grid != null)
-                grid.Clear();
+            if (_grid != null) _grid.Clear();
         }
     }
 }
