@@ -6,11 +6,17 @@ namespace BusJam
     {
         private static string Key = "BusJam.Coins";
         private static int _coins;
-        
+
         public static int Coins => _coins;
-        
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Load() => _coins = Mathf.Max(0, PlayerPrefs.GetInt(Key, 0));
+        private static void Load()
+        {
+            int startingCoins = (GameConfigSO.Current != null && GameConfigSO.Current.economy != null)
+                ? GameConfigSO.Current.economy.startingCoins
+                : 100;
+            _coins = Mathf.Max(0, PlayerPrefs.GetInt(Key, startingCoins));
+        }
 
         public static void Add(int amount)
         {

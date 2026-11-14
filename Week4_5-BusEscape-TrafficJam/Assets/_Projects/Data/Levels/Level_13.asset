@@ -13,52 +13,52 @@ MonoBehaviour:
   m_Name: Level_13
   m_EditorClassIdentifier: 
   levelNumber: 13
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 6
+  gridHeight: 7
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 3, y: 4}
+  - headCell: {x: 3, y: 2}
     kind: 1
-    color: 0
-    dir: 1
-  - headCell: {x: 3, y: 9}
-    kind: 0
     color: 1
-    dir: 2
-  - headCell: {x: 2, y: 3}
-    kind: 0
-    color: 3
     dir: 0
-  - headCell: {x: 1, y: 5}
+  - headCell: {x: 1, y: 2}
     kind: 0
     color: 0
     dir: 1
-  - headCell: {x: 3, y: 11}
+  - headCell: {x: 2, y: 0}
     kind: 1
-    color: 0
-    dir: 3
-  - headCell: {x: 2, y: 1}
+    color: 1
+    dir: 1
+  - headCell: {x: 4, y: 6}
     kind: 0
     color: 3
     dir: 0
-  - headCell: {x: 7, y: 6}
-    kind: 1
-    color: 1
-    dir: 2
-  - headCell: {x: 1, y: 1}
+  - headCell: {x: 0, y: 4}
     kind: 0
     color: 1
     dir: 0
-  - headCell: {x: 7, y: 9}
+  - headCell: {x: 0, y: 1}
     kind: 0
-    color: 0
+    color: 3
     dir: 3
-  - headCell: {x: 5, y: 6}
+  - headCell: {x: 5, y: 5}
     kind: 1
     color: 3
+    dir: 0
+  - headCell: {x: 1, y: 3}
+    kind: 0
+    color: 0
     dir: 2
-  passengerColors: 000000000000000000000000000000000100000001000000030000000300000001000000010000000100000001000000010000000100000001000000010000000000000000000000000000000000000003000000030000000300000003000000030000000300000003000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000001000000010000000100000003000000030000000300000003000000
+  - headCell: {x: 2, y: 4}
+    kind: 0
+    color: 0
+    dir: 2
+  passengerColors: 030000000300000003000000030000000000000000000000000000000000000000000000000000000000000000000000010000000100000001000000010000000300000003000000010000000100000001000000010000000300000003000000030000000300000001000000010000000100000001000000030000000300000003000000030000000100000001000000010000000100000000000000000000000000000000000000
   minSlotsRequired: 3
-  blockedVehicles: 5
+  blockedVehicles: 4
   maxChainDepth: 2
-  estimatedWinRate: 0.6333333
+  estimatedWinRate: 0.8
+  rewardCoins: 70
+  blockedCells:
+  - {x: 1, y: 5}
+  - {x: 4, y: 4}

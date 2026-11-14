@@ -9,10 +9,12 @@ namespace BusJam
         [SerializeField] private VehicleManager vehicleManager;
         [SerializeField] private bool blockWhileVehicleMoving = false;
 
+        private static readonly Collider2D[] _hits = new Collider2D[8];
+
         private void Awake()
         {
             if (targetCamera == null) targetCamera = Camera.main;
-            if (vehicleManager == null) vehicleManager = FindObjectOfType<VehicleManager>();
+            if (vehicleManager == null) vehicleManager = FindFirstObjectByType<VehicleManager>();
         }
 
         private void Update()
@@ -25,10 +27,25 @@ namespace BusJam
             if (blockWhileVehicleMoving && vehicleManager.HasMovingVehicle) return;
 
             Vector2 worldPoint = targetCamera.ScreenToWorldPoint(Input.mousePosition);
-            Collider2D hit = Physics2D.OverlapPoint(worldPoint);
+            int count = Physics2D.OverlapPointNonAlloc(worldPoint, _hits);
 
-            if (hit != null && hit.TryGetComponent(out VehicleController vehicle))
-                vehicle.TryMove();
+            for (int i = 0; i < count; i++)
+            {
+                if (_hits[i].TryGetComponent(out VehicleController vehicle))
+                {
+                    vehicle.TryMove();
+                    return;
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (_hits[i].TryGetComponent(out ParkSlotItem slot) && slot.IsPurchasable)
+                {
+                    slot.OnTapped();
+                    return;
+                }
+            }
         }
     }
 }

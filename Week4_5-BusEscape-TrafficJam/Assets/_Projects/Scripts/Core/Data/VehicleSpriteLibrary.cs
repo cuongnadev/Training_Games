@@ -17,19 +17,38 @@ namespace BusJam
             public Sprite spr;
         }
 
+        private readonly struct SpriteKey : IEquatable<SpriteKey>
+        {
+            public readonly VehicleKind Kind;
+            public readonly VehicleSkin Skin;
+            public readonly GameColor Color;
+            public readonly Direction Dir;
+
+            public SpriteKey(VehicleKind kind, VehicleSkin skin, GameColor color, Direction dir)
+            {
+                Kind = kind;
+                Skin = skin;
+                Color = color;
+                Dir = dir;
+            }
+
+            public bool Equals(SpriteKey other)
+                => Kind == other.Kind && Skin == other.Skin && Color == other.Color && Dir == other.Dir;
+
+            public override bool Equals(object obj) => obj is SpriteKey other && Equals(other);
+            public override int GetHashCode() => HashCode.Combine(Kind, Skin, Color, Dir);
+        }
+
         public List<Entry> entries = new List<Entry>();
-        private Dictionary<int, Sprite> _lockup;
+        private Dictionary<SpriteKey, Sprite> _lookup;
 
-        private static int Key(VehicleKind kind, VehicleSkin skin, GameColor color, Direction dir)
-            => ((((((int)kind * 2) + (int)skin) * 4) + (int)color) * 4) + (int)dir;
-
-        private void OnEnable() => _lockup = null;
-        private void OnValidate() => _lockup = null;
+        private void OnEnable() => _lookup = null;
+        private void OnValidate() => _lookup = null;
 
         public Sprite Get(VehicleKind kind, VehicleSkin skin, GameColor color, Direction dir)
         {
-            if (_lockup == null) Build();
-            if (_lockup.TryGetValue(Key(kind, skin, color, dir), out var s)) return s;
+            if (_lookup == null) Build();
+            if (_lookup.TryGetValue(new SpriteKey(kind, skin, color, dir), out var s)) return s;
 
             Debug.LogWarning($"[VehicleSpriteLibrary] Thiếu sprite: {kind}/{skin}/{color}/{dir}", this);
             return null;
@@ -37,21 +56,21 @@ namespace BusJam
 
         private void Build()
         {
-            _lockup = new Dictionary<int, Sprite>(entries.Count);
+            _lookup = new Dictionary<SpriteKey, Sprite>(entries.Count);
             foreach (var e in entries)
             {
                 if (e.spr == null) continue;
-                _lockup[Key(e.kind, e.skin, e.color, e.dir)] = e.spr;
+                _lookup[new SpriteKey(e.kind, e.skin, e.color, e.dir)] = e.spr;
             }
         }
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         public void SetEntries(List<Entry> newEntries)
         {
             entries = newEntries;
-            _lockup = null;
+            _lookup = null;
             UnityEditor.EditorUtility.SetDirty(this);
         }
-        #endif
+#endif
     }
 }

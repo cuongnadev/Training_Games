@@ -8,6 +8,10 @@ namespace BusJam
         public static LevelManager Instance { get; private set; }
 
         public const string ProgressKey = "BusJam.LevelIndex";
+        private const string MaxUnlockedKey = "BusJam.MaxUnlockedLevelIndex";
+
+        [Header("Config")]
+        [SerializeField] private GameConfigSO gameConfig;
 
         [Header("Level Data")]
         [SerializeField] private LevelDatabaseSO database;
@@ -33,6 +37,14 @@ namespace BusJam
 
         public int CurrentLevelIndex => _currentIndex;
         public LevelDataSO CurrentLevel => database.GetLevel(_currentIndex);
+        public static int MaxUnlockedLevelIndex
+        {
+            get
+            {
+                int current = PlayerPrefs.GetInt(ProgressKey, 0);
+                return Mathf.Max(current, PlayerPrefs.GetInt(MaxUnlockedKey, current));
+            }
+        }
 
         private void Awake()
         {
@@ -42,6 +54,12 @@ namespace BusJam
                 return;
             }
             Instance = this;
+
+            // Kích hoạt GameConfigSO cho toàn bộ runtime
+            if (gameConfig != null)
+            {
+                GameConfigSO.SetActive(gameConfig);
+            }
 
             if (!ValidateReferences()) enabled = false;
         }
@@ -68,19 +86,25 @@ namespace BusJam
         private void OnEnable()
         {
             EventBus<PlayRequestedEvent>.Subscribe(OnPlayRequested);
+            EventBus<NewGameRequestedEvent>.Subscribe(OnNewGameRequested);
+            EventBus<GoHomeRequestedEvent>.Subscribe(OnGoHomeRequested);
             EventBus<RestartRequestedEvent>.Subscribe(OnRestartRequested);
             EventBus<NextLevelRequestedEvent>.Subscribe(OnNextRequested);
             EventBus<GameStateChangedEvent>.Subscribe(OnStateChanged);
+            EventBus<SelectLevelRequestedEvent>.Subscribe(OnSelectLevelRequested);
         }
 
         private void OnDisable()
         {
             EventBus<PlayRequestedEvent>.Unsubscribe(OnPlayRequested);
+            EventBus<NewGameRequestedEvent>.Unsubscribe(OnNewGameRequested);
+            EventBus<GoHomeRequestedEvent>.Unsubscribe(OnGoHomeRequested);
             EventBus<RestartRequestedEvent>.Unsubscribe(OnRestartRequested);
             EventBus<NextLevelRequestedEvent>.Unsubscribe(OnNextRequested);
             EventBus<GameStateChangedEvent>.Unsubscribe(OnStateChanged);
+            EventBus<SelectLevelRequestedEvent>.Unsubscribe(OnSelectLevelRequested);
         }
-        
+
         private void Start()
         {
             slots.AllPassengersBoarded += HandleWin;
@@ -95,9 +119,7 @@ namespace BusJam
             {
                 _isLevelLoaded = false;
                 gameManager.SetBusy(false);
-                
                 HideGameplayObjects();
-        
                 gameManager.SetState(GameState.Menu);
             }
             else
@@ -108,15 +130,15 @@ namespace BusJam
 
         private void HideGameplayObjects()
         {
+            if (grid != null) grid.gameObject.SetActive(false);
             if (vehicleManager != null) vehicleManager.gameObject.SetActive(false);
-            
             if (passengerQueue != null) passengerQueue.gameObject.SetActive(false);
-            
             if (slots != null) slots.gameObject.SetActive(false);
         }
 
         private void ShowGameplayObjects()
         {
+            if (grid != null) grid.gameObject.SetActive(true);
             if (vehicleManager != null) vehicleManager.gameObject.SetActive(true);
             if (passengerQueue != null) passengerQueue.gameObject.SetActive(true);
             if (slots != null) slots.gameObject.SetActive(true);
@@ -134,7 +156,11 @@ namespace BusJam
             if (_loading || gameManager.State != GameState.Playing) return;
             if (Time.time < _nextDeadlockCheck) return;
 
-            _nextDeadlockCheck = Time.time + deadlockCheckInterval;
+            float interval = GameConfigSO.Current != null
+                ? GameConfigSO.Current.flowTiming.deadlockCheckInterval
+                : deadlockCheckInterval;
+
+            _nextDeadlockCheck = Time.time + interval;
 
             LoseReason reason = EvaluateLose();
             if (reason != LoseReason.None) Lose(reason);
@@ -142,29 +168,29 @@ namespace BusJam
 
         private LoseReason EvaluateLose()
         {
-            if (passengerQueue.Count == 0 || !passengerQueue.HasFront) 
+            if (passengerQueue.Count == 0 || !passengerQueue.HasFront)
                 return LoseReason.None;
-            if (vehicleManager.HasMovingVehicle || !slots.IsSettled) 
+            if (vehicleManager.HasMovingVehicle || !slots.IsSettled)
                 return LoseReason.None;
-            if (slots.FrontCanBoard) 
+            if (slots.FrontCanBoard)
                 return LoseReason.None;
 
-            if (!slots.HasFreeSlot) 
+            if (!slots.HasFreeSlot)
                 return LoseReason.SlotsFull;
-            if (!vehicleManager.HasMovableVehicle()) 
+            if (!vehicleManager.HasMovableVehicle())
                 return LoseReason.NoMovableVehicle;
-            
+
             return LoseReason.None;
         }
-        
+
         private void Lose(LoseReason reason)
         {
             if (_loading || gameManager.State != GameState.Playing) return;
 
-            EventBus<LevelLostEvent>.Publish(new LevelLostEvent(reason)); 
+            EventBus<LevelLostEvent>.Publish(new LevelLostEvent(reason));
             gameManager.Lose();
         }
-        
+
         public void PlayCurrentLevel()
         {
             if (!_isLevelLoaded)
@@ -176,15 +202,17 @@ namespace BusJam
                 gameManager.FinishLoading();
             }
         }
-        
+
         public void StartNewGame()
         {
             ResetProgress();
+            SlotProgress.ResetSavedProgress();
             _currentIndex = 0;
             _isLevelLoaded = false;
             LoadLevel(0);
         }
 
+        // ================= Event Handlers thay thế gọi hàm trực tiếp =================
         private void OnPlayRequested(PlayRequestedEvent _)
         {
             if (gameManager.State == GameState.Menu)
@@ -193,11 +221,22 @@ namespace BusJam
             }
         }
 
+        private void OnNewGameRequested(NewGameRequestedEvent _) => StartNewGame();
+
+        private void OnGoHomeRequested(GoHomeRequestedEvent _) => gameManager.SetState(GameState.Menu);
+
         private void OnRestartRequested(RestartRequestedEvent _) => RestartLevel();
 
         private void OnNextRequested(NextLevelRequestedEvent _)
         {
             if (gameManager.State == GameState.Won) NextLevel();
+        }
+
+        private void OnSelectLevelRequested(SelectLevelRequestedEvent e)
+        {
+            int last = database != null ? Mathf.Max(0, database.Count - 1) : 0;
+            _currentIndex = Mathf.Clamp(e.LevelIndex, 0, last);
+            LoadLevel(_currentIndex);
         }
 
         public void LoadLevel(int index)
@@ -226,7 +265,7 @@ namespace BusJam
                     level);
                 return;
             }
-            
+
             if (_loadRoutine != null) StopCoroutine(_loadRoutine);
 
             _loadRoutine = StartCoroutine(LoadRoutine(index, level));
@@ -236,21 +275,25 @@ namespace BusJam
         {
             _loading = true;
             gameManager.BeginLoading();
-            
+
             ShowGameplayObjects();
-            
+
             PoolManager.Instance.ReleaseTransientObjects();
             PoolManager.Instance.PrepareForLevel(level);
             passengerQueue.Clear();
             vehicleManager.ClearVehicles();
-            
-            grid.Configure(level.GridWidth, level.GridHeight);
+
+            // Khởi tạo Grid động theo Width, Height và BlockedCells
+            grid.Configure(level.GridWidth, level.GridHeight, level.BlockedCells);
+
+            // Khởi tạo tiến trình Slot (Permanent vs PerLevel)
+            SlotProgress.InitializeForLevel(level.UnlockedSlots);
             slots.SetUnlockedCount(SlotProgress.Unlocked);
             slots.Rebuild();
             slots.ResetSlots();
-            
+
             yield return null;
-            
+
             if (!vehicleManager.SpawnVehicles(level.Vehicles))
             {
                 _loading = false;
@@ -264,40 +307,49 @@ namespace BusJam
 
             _currentIndex = index;
             SaveProgress(_currentIndex);
-            EventBus<LevelLoadedEvent>.Publish(new LevelLoadedEvent(level.LevelNumber));
+
+            int maxUnlocked = MaxUnlockedLevelIndex;
+            bool isReplay = (index < maxUnlocked);
+            int actualReward = isReplay ? 0 : level.RewardCoins;
+            EventBus<LevelLoadedEvent>.Publish(new LevelLoadedEvent(level.LevelNumber, actualReward));
 
             yield return null;
 
             _loading = false;
             _loadRoutine = null;
-            _nextDeadlockCheck = Time.time + 1f;
+
+            float postLoadDelay = GameConfigSO.Current != null
+                ? GameConfigSO.Current.flowTiming.postLevelLoadDeadlockDelay
+                : 1f;
+
+            _nextDeadlockCheck = Time.time + postLoadDelay;
             _isLevelLoaded = true;
-            
+
             gameManager.FinishLoading();
         }
-        
+
         private void OnStateChanged(GameStateChangedEvent e)
         {
             if (e.State != GameState.Menu) return;
-            
+
             if (_loadRoutine != null)
             {
                 StopCoroutine(_loadRoutine);
                 _loadRoutine = null;
             }
             _loading = false;
-            _isLevelLoaded = false; 
+            _isLevelLoaded = false;
             gameManager.SetBusy(false);
 
             HideGameplayObjects();
-            
+
             int last = Mathf.Max(0, database.Count - 1);
             _currentIndex = Mathf.Clamp(PlayerPrefs.GetInt(ProgressKey, _currentIndex), 0, last);
         }
 
         public void RestartLevel() => LoadLevel(_currentIndex);
 
-        public void NextLevel() 
+        public void NextLevel()
         {
             int next = _currentIndex + 1;
             if (next >= database.Count)
@@ -321,7 +373,9 @@ namespace BusJam
         public void ResetProgress()
         {
             PlayerPrefs.DeleteKey(ProgressKey);
+            PlayerPrefs.DeleteKey(MaxUnlockedKey);
             PlayerPrefs.Save();
+            SlotProgress.ResetSavedProgress();
         }
 
         private void HandleWin()
@@ -329,7 +383,14 @@ namespace BusJam
             if (_loading || gameManager.State != GameState.Playing) return;
 
             gameManager.Win();
-            SaveProgress(NextIndex());
+
+            int next = NextIndex();
+            int maxUnlocked = MaxUnlockedLevelIndex;
+            if (_currentIndex >= maxUnlocked)
+            {
+                PlayerPrefs.SetInt(MaxUnlockedKey, _currentIndex + 1);
+            }
+            SaveProgress(next);
         }
     }
 }

@@ -9,24 +9,9 @@ namespace BusJam
     [RequireComponent(typeof(VehicleView), typeof(BoxCollider2D))]
     public class VehicleController : MonoBehaviour
     {
-        [Header("Movement")]
-        [Tooltip("Travel speed in grid cells per second.")]
-        [SerializeField] private float moveSpeed = 14f;
-        [Tooltip("How far into the blocker the vehicle bumps before rolling back, in cells.")]
-        [SerializeField] private float bumpCells = 0.15f;
-        [Tooltip("Seconds taken to rotate into the parked orientation.")]
-        [SerializeField] private float rotateDuration = 0.15f;
-
         [Header("Visual")]
-        [Tooltip("How much of the cell the vehicle sprite fills.")]
         [SerializeField, Range(0.5f, 1f)] private float fill = 0.9f;
-        [Tooltip("0 keeps the sprite aspect ratio, 1 stretches it to fill the cells exactly.")]
         [SerializeField, Range(0f, 1f)] private float stretch = 0.5f;
-
-        [Header("Juice")]
-        [Tooltip("Seconds between smoke puffs while the vehicle is moving.")]
-        [SerializeField] private float smokeInterval = 0.07f;
-        [Tooltip("Optional boarded/capacity tooltip shown at the tail when parked. Found automatically in children if empty.")]
         [SerializeField] private VehicleBoardCounter counter;
 
         private ParkingGrid _grid;
@@ -45,6 +30,8 @@ namespace BusJam
         private Tween _squashTween;
         private float _smokeTimer;
         private readonly List<Vector3> _path = new List<Vector3>(8);
+
+        private GameConfigSO.VehicleAnimationConfig AnimCfg => GameConfigSO.Current.vehicleAnim;
 
         public VehicleKind Kind { get; private set; }
         public GameColor Color { get; private set; }
@@ -107,7 +94,7 @@ namespace BusJam
             if (!_grid.Place(this)) return false;
 
             _center = _grid.CellToWorld(CenterCell());
-            ApplyFacing(Direction, VehicleSkin.Arrow);
+            ApplyFacing(Direction, VehicleSkin.Arrow, _grid.CellSize);
             return true;
         }
 
@@ -125,24 +112,21 @@ namespace BusJam
             transform.position = _center - rot * _pivotOffset;
         }
 
-        private void ApplyFacing(Direction facing, VehicleSkin skin)
+        private void ApplyFacing(Direction facing, VehicleSkin skin, float cellSize)
         {
             _facing = facing;
             _view.Setup(Kind, Color, facing, skin);
-            FitToCell(facing);
+            FitToCellSize(cellSize, facing);
             SyncTransform();
         }
 
-        private void FitToCell(Direction facing)
+        private void FitToCellSize(float cell, Direction facing)
         {
             _pivotOffset = Vector3.zero;
-
             var sprite = _sr.sprite;
-            if (sprite == null) return;
+            if (sprite == null || cell <= 0f) return;
 
-            float cell = _grid.CellSize;
             bool vertical = facing == Direction.Up || facing == Direction.Down;
-
             GetVisibleRect(sprite, out Vector2 size, out Vector2 center);
             float spriteAlong = vertical ? size.y : size.x;
             float spriteAcross = vertical ? size.x : size.y;
@@ -163,9 +147,7 @@ namespace BusJam
             _spriteCenter = center;
             ApplyScale();
 
-            Vector2 world = vertical
-                ? new Vector2(targetAcross, targetAlong)
-                : new Vector2(targetAlong, targetAcross);
+            Vector2 world = vertical ? new Vector2(targetAcross, targetAlong) : new Vector2(targetAlong, targetAcross);
             _collider.size = new Vector2(world.x / scale.x, world.y / scale.y);
             _collider.offset = center;
         }
@@ -200,24 +182,29 @@ namespace BusJam
         }
 
         private Tween SquashTo(Vector3 target, float duration, Ease ease)
-            => DOTween.To(() => _squash, SetSquash, target, duration).SetEase(ease);
+            => DOTween.To(() => _squash, SetSquash, target, duration)
+                .SetEase(ease)
+                .SetLink(gameObject, LinkBehaviour.KillOnDisable);
 
         public void PlayLaunchSquash()
         {
+            var cfg = AnimCfg;
             KillSquash(false);
-            var seq = DOTween.Sequence();
-            seq.Append(SquashTo(AxisScale(0.92f, 1.07f), 0.07f, Ease.OutQuad));
-            seq.Append(SquashTo(AxisScale(1.15f, 0.9f), 0.10f, Ease.OutQuad));
-            seq.Append(SquashTo(Vector3.one, 0.28f, Ease.OutElastic));
+            var seq = DOTween.Sequence().SetLink(gameObject, LinkBehaviour.KillOnDisable);
+            seq.Append(SquashTo(AxisScale(cfg.launchSquash1.x, cfg.launchSquash1.y), cfg.launchDuration1, Ease.OutQuad));
+            seq.Append(SquashTo(AxisScale(cfg.launchSquash2.x, cfg.launchSquash2.y), cfg.launchDuration2, Ease.OutQuad));
+            seq.Append(SquashTo(Vector3.one, cfg.launchRecoverDuration, Ease.OutElastic));
             _squashTween = seq;
         }
 
-        public void Wobble(float amount = 0.08f)
+        public void Wobble(float amount = -1f)
         {
+            var cfg = AnimCfg;
+            float w = amount > 0f ? amount : cfg.wobbleAmount;
             KillSquash(false);
-            var seq = DOTween.Sequence();
-            seq.Append(SquashTo(new Vector3(1f + amount, 1f + amount, 1f), 0.06f, Ease.OutQuad));
-            seq.Append(SquashTo(Vector3.one, 0.18f, Ease.OutBack));
+            var seq = DOTween.Sequence().SetLink(gameObject, LinkBehaviour.KillOnDisable);
+            seq.Append(SquashTo(new Vector3(1f + w, 1f + w, 1f), cfg.wobbleUpDuration, Ease.OutQuad));
+            seq.Append(SquashTo(Vector3.one, cfg.wobbleBackDuration, Ease.OutBack));
             _squashTween = seq;
         }
 
@@ -225,23 +212,24 @@ namespace BusJam
         {
             Boarded = count;
             if (counter != null) counter.Set(count, Kind.Capacity());
-            Wobble(0.06f);
+            Wobble(AnimCfg.wobbleAmount * 0.75f);
         }
 
         private void ShowCounter()
         {
             if (counter == null) return;
 
+            float unit = _slots != null ? _slots.SlotUnit : _grid.CellSize;
             Vector3 tailDir = Quaternion.Euler(0f, 0f, _rotation) * Vector3.down;
             Bounds b = _sr.bounds;
             float half = Mathf.Abs(tailDir.x) * b.extents.x + Mathf.Abs(tailDir.y) * b.extents.y;
-            counter.ShowAt(b.center + tailDir * half, tailDir, _grid.CellSize, Boarded, Kind.Capacity());
+            counter.ShowAt(b.center + tailDir * half, tailDir, unit, Boarded, Kind.Capacity());
         }
 
-        private void EmitSmoke(Vector3 moveDir)
+        private void EmitSmoke(Vector3 moveDir, float smokeScale)
         {
-            float back = Kind.Length() * _grid.CellSize * 0.4f;
-            GameFeedback.Smoke(_center - moveDir * back, _grid.CellSize);
+            float back = Kind.Length() * smokeScale * AnimCfg.smokeBackOffsetRatio;
+            GameFeedback.Smoke(_center - moveDir * back, smokeScale);
         }
 
         private static void GetVisibleRect(Sprite sprite, out Vector2 size, out Vector2 center)
@@ -277,7 +265,6 @@ namespace BusJam
             GameFeedback.VehicleClick();
 
             int free = _grid.CountFreeSteps(this, out var blocker);
-
             if (blocker != null)
             {
                 StartCoroutine(BumpRoutine(free, blocker));
@@ -311,7 +298,8 @@ namespace BusJam
             PlayLaunchSquash();
 
             float distance = (freeSteps + Kind.Length() + 1) * _grid.CellSize;
-            yield return MoveCenterTo(_center + (Vector3)(Vector2)Direction.ToVector() * distance);
+            yield return MoveCenterLinear(_center + (Vector3)(Vector2)Direction.ToVector() * distance,
+                AnimCfg.moveSpeed * _grid.CellSize, true, _grid.CellSize);
 
             IsMoving = false;
             gameObject.SetActive(false);
@@ -328,21 +316,26 @@ namespace BusJam
             PlayLaunchSquash();
 
             _slots.BuildPath(CenterCell(), Direction, _slotIndex, _path);
+            float moveSpeedWorld = AnimCfg.moveSpeed * _grid.CellSize;
 
-            foreach (var waypoint in _path)
+            for (int i = 0; i < _path.Count; i++)
             {
+                Vector3 waypoint = _path[i];
                 Vector3 delta = waypoint - _center;
                 if (delta.sqrMagnitude < 0.0001f) continue;
-
                 Direction face = StepDirection(delta);
-                if (face != _facing) ApplyFacing(face, VehicleSkin.Arrow);
-
-                yield return MoveCenterTo(waypoint);
+                if (face != _facing) ApplyFacing(face, VehicleSkin.Arrow, _grid.CellSize);
+                yield return MoveCenterLinear(waypoint, moveSpeedWorld, true, _grid.CellSize);
             }
 
-            ApplyFacing(Direction.Up, VehicleSkin.Seat);
+            ApplyFacing(Direction.Up, VehicleSkin.Seat, _grid.CellSize);
             yield return RotateTo(_slots.ParkedRotation);
-
+            // Bổ sung: Lấy lại đúng tâm ô đỗ mới nhất phòng khi ô bị dời lúc xe đang chạy trên đường
+            if (_slots != null && _slotIndex >= 0)
+            {
+                _center = _slots.SlotCenter(_slotIndex);
+                SyncTransform();
+            }
             IsMoving = false;
             IsParked = true;
             ShowCounter();
@@ -350,35 +343,164 @@ namespace BusJam
             _slots.NotifyArrived(_slotIndex);
         }
 
-        public IEnumerator Depart(float backCells, float exitX)
+        public void SetParkedCenter(Vector3 targetCenter, bool animate = false, float duration = 0.28f)
         {
+            KillSquash(false);
+            transform.DOKill();
+            if (animate && Application.isPlaying && gameObject.activeInHierarchy)
+            {
+                // Dùng DOTween tween biến _center để mỗi frame đều gọi SyncTransform() 
+                // giúp giữ chuẩn Pivot và tính toán rời bến Depart sau này không bị lệch.
+                DOTween.To(() => _center, val =>
+                {
+                    _center = val;
+                    SyncTransform();
+                    if (counter != null && counter.gameObject.activeSelf) ShowCounter();
+                }, targetCenter, duration)
+                .SetEase(Ease.OutQuad)
+                .SetLink(gameObject, LinkBehaviour.KillOnDisable);
+            }
+            else
+            {
+                _center = targetCenter;
+                SyncTransform();
+                if (counter != null && counter.gameObject.activeSelf) ShowCounter();
+            }
+        }
+
+        public IEnumerator Depart(float exitX, bool departToRight = true, float targetRoadY = float.NaN)
+        {
+            var cfg = AnimCfg;
+            float unit = _slots != null ? _slots.SlotUnit : _grid.CellSize;
+
             IsMoving = true;
             IsParked = false;
-            if (counter != null) counter.Hide();
             GameFeedback.VehicleDepartStart();
 
-            ApplyFacing(Direction.Up, VehicleSkin.Arrow);
+            // 1. Nảy báo hiệu đủ khách + ẩn counter
+            Wobble(cfg.readyPopAmount);
+            if (counter != null) counter.Hide();
+            if (cfg.readyPause > 0f)
+                yield return new WaitForSeconds(cfg.readyPause);
+
+            // 2. Xoay thẳng về 0 độ
+            ApplyFacing(Direction.Up, VehicleSkin.Arrow, unit);
             yield return RotateTo(0f);
 
-            yield return MoveCenterTo(_center + Vector3.down * (backCells * _grid.CellSize));
+            // Xác định chính xác cao độ của đường (tim đường có vạch kẻ trắng)
+            float roadY = !float.IsNaN(targetRoadY)
+                ? targetRoadY
+                : (_slots != null ? _slots.ExitMergeRoadY : (_center.y - 2f * unit));
 
-            ApplyFacing(Direction.Right, VehicleSkin.Arrow);
-            PlayLaunchSquash();
+            // Quãng đường lùi từ ô đỗ xuống tim đường
+            float totalBackDist = Mathf.Max(0.1f, _center.y - roadY);
+            float turnR = Mathf.Min(cfg.turnRadiusCells * unit, totalBackDist * 0.6f);
+
+            Vector3 straightBackTarget = new Vector3(_center.x, roadY + turnR, _center.z);
+            Vector3 cornerPoint = new Vector3(_center.x, roadY, _center.z);
+            Vector3 turnExitPoint = new Vector3(_center.x + (departToRight ? turnR : -turnR), roadY, _center.z);
+
+            // Lùi thẳng xuống điểm chuẩn bị bo cua
+            if (_center.y > straightBackTarget.y + 0.001f)
+            {
+                yield return MoveCenterLinear(
+                    straightBackTarget,
+                    cfg.moveSpeed * unit * cfg.reverseSpeedMultiplier,
+                    true,
+                    unit);
+            }
+
+            // 3. Bo cua mượt bằng Quadratic Bezier vào làn đường bên PHẢI (hoặc TRÁI)
+            Direction exitFacing = departToRight ? Direction.Right : Direction.Left;
+            float bankAngle = departToRight ? cfg.turnBankAngle : -cfg.turnBankAngle;
+            bool switchedFacing = false;
+            Vector3 turnStart = _center;
+            float tTurn = 0f;
+            float turnDur = Mathf.Max(0.05f, cfg.turnDuration);
+
+            while (tTurn < turnDur)
+            {
+                tTurn += Time.deltaTime;
+                float u = Mathf.Clamp01(tTurn / turnDur);
+                float eased = u * u * (3f - 2f * u); 
+
+                float inv = 1f - eased;
+                _center = inv * inv * turnStart
+                        + 2f * inv * eased * cornerPoint
+                        + eased * eased * turnExitPoint;
+
+                if (!switchedFacing && eased >= 0.48f)
+                {
+                    switchedFacing = true;
+                    ApplyFacing(exitFacing, VehicleSkin.Arrow, unit);
+                    _rotation = bankAngle;
+                }
+                else if (switchedFacing)
+                {
+                    float bankU = Mathf.InverseLerp(0.48f, 1f, eased);
+                    _rotation = Mathf.LerpAngle(bankAngle, 0f, bankU);
+                }
+
+                SyncTransform();
+                yield return null;
+            }
+
+            _rotation = 0f;
+            _center = turnExitPoint;
+            if (!switchedFacing) ApplyFacing(exitFacing, VehicleSkin.Arrow, unit);
+            SyncTransform();
+
+            // 4. Bứt tốc dọc theo tim đường + kéo dãn thân xe + xả khói phía sau
             GameFeedback.VehicleDepartLaunch();
+            KillSquash(false);
+            SquashTo(AxisScale(cfg.departBoostScale.x, cfg.departBoostScale.y), 0.12f, Ease.OutQuad);
 
-            yield return MoveCenterTo(new Vector3(exitX, _center.y, _center.z));
+            Vector3 exitStart = _center;
+            Vector3 exitEnd = new Vector3(exitX, roadY, _center.z);
+            float tExit = 0f;
+            float exitDur = Mathf.Max(0.15f, cfg.exitAccelerateDuration);
+            _smokeTimer = 0f;
+            Vector3 smokeDir = departToRight ? Vector3.right : Vector3.left;
 
+            while (tExit < exitDur)
+            {
+                tExit += Time.deltaTime;
+                float u = Mathf.Clamp01(tExit / exitDur);
+                float easeInQuad = u * u;
+
+                _center = Vector3.LerpUnclamped(exitStart, exitEnd, easeInQuad);
+                SyncTransform();
+
+                _smokeTimer -= Time.deltaTime;
+                if (_smokeTimer <= 0f)
+                {
+                    _smokeTimer = cfg.departSmokeInterval;
+                    EmitSmoke(smokeDir, unit);
+                }
+                yield return null;
+            }
+
+            _center = exitEnd;
+            SyncTransform();
             IsMoving = false;
             gameObject.SetActive(false);
         }
 
+        public IEnumerator Depart(float backCells, float exitX)
+        {
+            return Depart(exitX, true, float.NaN);
+        }
+
         private IEnumerator BumpRoutine(int freeSteps, VehicleController blocker)
         {
+            var cfg = AnimCfg;
             IsMoving = true;
             Vector3 start = _center;
             Vector3 dir = (Vector3)(Vector2)Direction.ToVector();
+            float speedWorld = cfg.moveSpeed * _grid.CellSize;
 
-            yield return MoveCenterTo(start + dir * ((freeSteps + bumpCells) * _grid.CellSize), false);
+            yield return MoveCenterLinear(start + dir * ((freeSteps + cfg.bumpCells) * _grid.CellSize),
+                speedWorld, false, _grid.CellSize);
 
             Vector3 contact = _center + dir * (Kind.Length() * _grid.CellSize * 0.5f);
             GameFeedback.VehicleBump(contact, _grid.CellSize);
@@ -386,14 +508,15 @@ namespace BusJam
             if (blocker != null) blocker.Wobble(0.1f);
 
             Blocked?.Invoke(this, blocker);
-            yield return MoveCenterTo(start, false);
+            yield return MoveCenterLinear(start, speedWorld, false, _grid.CellSize);
 
             IsMoving = false;
         }
 
         private IEnumerator RotateTo(float target)
         {
-            if (Mathf.Approximately(_rotation, target) || rotateDuration <= 0f)
+            float dur = AnimCfg.rotateDuration;
+            if (Mathf.Approximately(_rotation, target) || dur <= 0f)
             {
                 _rotation = target;
                 SyncTransform();
@@ -402,10 +525,10 @@ namespace BusJam
 
             float start = _rotation;
             float t = 0f;
-            while (t < rotateDuration)
+            while (t < dur)
             {
                 t += Time.deltaTime;
-                _rotation = Mathf.LerpAngle(start, target, Mathf.Clamp01(t / rotateDuration));
+                _rotation = Mathf.LerpAngle(start, target, Mathf.Clamp01(t / dur));
                 SyncTransform();
                 yield return null;
             }
@@ -414,14 +537,13 @@ namespace BusJam
             SyncTransform();
         }
 
-        private IEnumerator MoveCenterTo(Vector3 target, bool smoke = true)
+        private IEnumerator MoveCenterLinear(Vector3 target, float worldSpeed, bool smoke, float smokeScale)
         {
-            float speed = moveSpeed * _grid.CellSize;
-
+            var cfg = AnimCfg;
             while ((_center - target).sqrMagnitude > 0.0001f)
             {
                 Vector3 previous = _center;
-                _center = Vector3.MoveTowards(_center, target, speed * Time.deltaTime);
+                _center = Vector3.MoveTowards(_center, target, worldSpeed * Time.deltaTime);
                 SyncTransform();
 
                 if (smoke)
@@ -430,8 +552,8 @@ namespace BusJam
                     Vector3 step = _center - previous;
                     if (_smokeTimer <= 0f && step.sqrMagnitude > 1e-8f)
                     {
-                        _smokeTimer = smokeInterval;
-                        EmitSmoke(step.normalized);
+                        _smokeTimer = cfg.smokeInterval;
+                        EmitSmoke(step.normalized, smokeScale);
                     }
                 }
                 yield return null;
@@ -439,6 +561,14 @@ namespace BusJam
 
             _center = target;
             SyncTransform();
+        }
+
+        public void PlayCelebrationPop()
+        {
+            KillSquash(false);
+            transform.DOPunchScale(Vector3.up * 0.25f + Vector3.right * 0.12f, 0.35f, 3, 0.5f)
+                .SetLink(gameObject, LinkBehaviour.KillOnDisable);
+            GameFeedback.SlotUnlocked(_center + Vector3.up * (_grid.CellSize * 0.4f), _grid.CellSize);
         }
     }
 }

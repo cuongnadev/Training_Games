@@ -13,44 +13,43 @@ MonoBehaviour:
   m_Name: Level_09
   m_EditorClassIdentifier: 
   levelNumber: 9
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 5
+  gridHeight: 5
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 8, y: 2}
-    kind: 1
-    color: 1
-    dir: 0
-  - headCell: {x: 3, y: 2}
+  - headCell: {x: 1, y: 0}
     kind: 0
-    color: 0
-    dir: 1
+    color: 1
+    dir: 3
+  - headCell: {x: 2, y: 1}
+    kind: 1
+    color: 3
+    dir: 2
   - headCell: {x: 3, y: 4}
     kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 0, y: 9}
-    kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 6, y: 6}
-    kind: 0
-    color: 0
-    dir: 3
-  - headCell: {x: 3, y: 1}
-    kind: 0
     color: 0
     dir: 1
-  - headCell: {x: 7, y: 10}
+  - headCell: {x: 4, y: 0}
+    kind: 0
+    color: 1
+    dir: 1
+  - headCell: {x: 1, y: 4}
+    kind: 0
+    color: 0
+    dir: 0
+  - headCell: {x: 0, y: 2}
+    kind: 0
+    color: 0
+    dir: 0
+  - headCell: {x: 3, y: 3}
     kind: 1
-    color: 1
-    dir: 1
-  - headCell: {x: 6, y: 5}
-    kind: 0
-    color: 0
+    color: 3
     dir: 0
-  passengerColors: 010000000100000001000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000010000000100000001000000010000000100000000000000010000000100000001000000010000000100000001000000010000000100000001000000
+  passengerColors: 0000000000000000010000000100000001000000030000000300000003000000030000000300000003000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000010000000100000001000000010000000300000003000000030000000300000003000000
   minSlotsRequired: 3
-  blockedVehicles: 3
+  blockedVehicles: 2
   maxChainDepth: 1
-  estimatedWinRate: 0.84166664
+  estimatedWinRate: 0.725
+  rewardCoins: 60
+  blockedCells:
+  - {x: 1, y: 2}

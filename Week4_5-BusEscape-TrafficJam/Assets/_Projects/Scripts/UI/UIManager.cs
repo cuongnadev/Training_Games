@@ -13,6 +13,7 @@ namespace BusJam
         [SerializeField] private WinPopupUI winPopup;
         [SerializeField] private LosePopupUI losePopup;
         [SerializeField] private SettingsPopupUI settingsPopup;
+        [SerializeField] private LevelSelectPopupUI levelSelectPopup;
 
         [Header("Timing")]
         [SerializeField] private float _winPopupDelay = 0.9f;
@@ -35,12 +36,9 @@ namespace BusJam
             ok &= Require(winPopup, nameof(winPopup));
             ok &= Require(losePopup, nameof(losePopup));
             if (!ok) enabled = false;
-            
-            if (hud != null)
-            {
-                hud.gameObject.SetActive(false);
-            }
-            
+
+            if (hud != null) hud.gameObject.SetActive(false);
+
             if (homePopup != null)
             {
                 homePopup.gameObject.SetActive(true);
@@ -87,6 +85,7 @@ namespace BusJam
         {
             if (hud != null) hud.SetLevel(e.Level);
             if (homePopup != null) homePopup.RefreshLevelDisplay();
+            if (winPopup != null) winPopup.SetRewardCoins(e.RewardCoins);
         }
 
         private void OnPassengersChanged(PassengersChangedEvent e)
@@ -105,27 +104,38 @@ namespace BusJam
 
         public void ShowSettings()
         {
-            if (settingsPopup != null)
-            {
-                settingsPopup.Show();
-            }
-            else if (SettingsPopupUI.Instance != null)
-            {
-                SettingsPopupUI.Instance.Show();
-            }
+            if (settingsPopup != null) settingsPopup.Show();
+            else if (SettingsPopupUI.Instance != null) SettingsPopupUI.Instance.Show();
         }
 
         public void HideSettings()
         {
-            if (settingsPopup != null)
+            if (settingsPopup != null) settingsPopup.Hide();
+        }
+
+        public void ShowLevelSelect()
+        {
+            if (levelSelectPopup != null) levelSelectPopup.Show();
+            else if (LevelSelectPopupUI.Instance != null) LevelSelectPopupUI.Instance.Show();
+            else
             {
-                settingsPopup.Hide();
+                var popups = Resources.FindObjectsOfTypeAll<LevelSelectPopupUI>();
+                if (popups != null && popups.Length > 0) popups[0].Show();
             }
+        }
+
+        public void HideLevelSelect()
+        {
+            if (levelSelectPopup != null) levelSelectPopup.Hide();
+            else if (LevelSelectPopupUI.Instance != null) LevelSelectPopupUI.Instance.Hide();
         }
 
         private void OnStateChanged(GameStateChangedEvent e)
         {
             _resultDelay?.Kill();
+
+            float winDelay = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.winPopupDelay : _winPopupDelay;
+            float loseDelay = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.losePopupDelay : _losePopupDelay;
 
             switch (e.State)
             {
@@ -139,20 +149,19 @@ namespace BusJam
                 case GameState.Playing:
                     if (hud != null) hud.gameObject.SetActive(true);
                     if (homePopup != null) homePopup.Hide(instant: false);
+                    if (levelSelectPopup != null) levelSelectPopup.Hide(instant: true);
                     break;
 
                 case GameState.Won:
                     if (homePopup != null) homePopup.Hide(instant: true);
                     if (settingsPopup != null) settingsPopup.Hide(instant: true);
-                    _resultDelay = DOVirtual.DelayedCall(_winPopupDelay, winPopup.Show)
-                        .SetLink(gameObject);
+                    _resultDelay = DOVirtual.DelayedCall(winDelay, winPopup.Show).SetLink(gameObject);
                     break;
 
                 case GameState.Lost:
                     if (homePopup != null) homePopup.Hide(instant: true);
                     if (settingsPopup != null) settingsPopup.Hide(instant: true);
-                    _resultDelay = DOVirtual.DelayedCall(_losePopupDelay, ShowLose)
-                        .SetLink(gameObject);
+                    _resultDelay = DOVirtual.DelayedCall(loseDelay, ShowLose).SetLink(gameObject);
                     break;
 
                 default:

@@ -2,7 +2,7 @@
 {
     public static class SlotRules
     {
-        public const int DefaultUnlocked = 3;
-        public const int MaxSlots = 6;
+        public static int DefaultUnlocked => GameConfigSO.Current.parking.defaultUnlockedSlots;
+        public static int MaxSlots => GameConfigSO.Current.parking.maxSlots;
     }
 }

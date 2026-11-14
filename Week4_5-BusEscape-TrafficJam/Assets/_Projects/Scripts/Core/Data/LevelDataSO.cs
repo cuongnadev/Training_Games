@@ -9,35 +9,43 @@ namespace BusJam
         [SerializeField, Min(1)] private int levelNumber = 1;
         [SerializeField, Min(1)] private int gridWidth = 9;
         [SerializeField, Min(1)] private int gridHeight = 12;
-        [SerializeField, Min(1)] private int unlockedSlots = 6; 
+        [SerializeField, Min(1)] private int unlockedSlots = 6;
         [SerializeField] private List<VehicleSpawnData> vehicles = new List<VehicleSpawnData>();
         [SerializeField] private List<GameColor> passengerColors = new List<GameColor>();
-        
+
         [Header("Analysis (do Level Creation Tool ghi, chỉ để xem)")]
         [SerializeField] private int minSlotsRequired;
         [SerializeField] private int blockedVehicles;
         [SerializeField] private int maxChainDepth;
         [SerializeField, Range(0f, 1f)] private float estimatedWinRate;
 
+        [SerializeField, Min(0)] private int rewardCoins = 50;
+        [SerializeField] private List<Vector2Int> blockedCells = new List<Vector2Int>();
+
         public int LevelNumber => levelNumber;
         public int GridWidth => gridWidth;
         public int GridHeight => gridHeight;
         public int UnlockedSlots => unlockedSlots;
+        public int UnlockedSlotsOverride => unlockedSlots;
         public IReadOnlyList<VehicleSpawnData> Vehicles => vehicles;
         public IReadOnlyList<GameColor> PassengerColors => passengerColors;
-        
+
         public int MinSlotsRequired => minSlotsRequired;
         public int BlockedVehicles => blockedVehicles;
         public int MaxChainDepth => maxChainDepth;
         public float EstimatedWinRate => estimatedWinRate;
 
-        public void Configure(int number, int width, int height)
+        public int RewardCoins => rewardCoins;
+        public IReadOnlyList<Vector2Int> BlockedCells => blockedCells;
+
+        public void Configure(int number, int width, int height, int reward = 50)
         {
             levelNumber = Mathf.Max(1, number);
             gridWidth = Mathf.Max(1, width);
             gridHeight = Mathf.Max(1, height);
+            rewardCoins = Mathf.Max(0, reward);
         }
-        
+
         public void SetUnlockedSlots(int value) => unlockedSlots = Mathf.Max(1, value);
 
         public void ReplaceVehicles(IEnumerable<VehicleSpawnData> values)
@@ -119,19 +127,26 @@ namespace BusJam
             {
                 requiredByColor.TryGetValue(c, out int need);
                 haveByColor.TryGetValue(c, out int have);
-                if(need != have) 
+                if (need != have)
                     errors.Add($"Color {c}: vehicles need {need} passengers but the queue has {have}.");
             }
-            
+
             return errors.Count == 0;
         }
-        
+
         public void SetAnalysis(int minSlots, int blocked, int chain, float winRate)
         {
             minSlotsRequired = minSlots;
             blockedVehicles = blocked;
             maxChainDepth = chain;
             estimatedWinRate = winRate;
+        }
+
+        public void ReplaceBlockedCells(IEnumerable<Vector2Int> values)
+        {
+            blockedCells.Clear();
+            if (values == null) return;
+            blockedCells.AddRange(values);
         }
     }
 }

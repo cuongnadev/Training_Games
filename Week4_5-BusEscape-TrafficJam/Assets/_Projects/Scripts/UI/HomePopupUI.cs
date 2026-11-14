@@ -9,6 +9,8 @@ namespace BusJam
     [RequireComponent(typeof(CanvasGroup))]
     public sealed class HomePopupUI : MonoBehaviour
     {
+        private const string ProgressKey = "BusJam.LevelIndex";
+
         public static HomePopupUI Instance { get; private set; }
 
         [Header("UI Elements")]
@@ -16,6 +18,7 @@ namespace BusJam
         [SerializeField] private TMP_Text currentLevelLabel;
         [SerializeField] private Button continueButton;
         [SerializeField] private Button newGameButton;
+        [SerializeField] private Button levelsButton;
         [SerializeField] private Button settingsButton;
 
         [Header("Animation Settings")]
@@ -45,6 +48,7 @@ namespace BusJam
 
             if (continueButton != null) continueButton.onClick.AddListener(OnContinueClicked);
             if (newGameButton != null) newGameButton.onClick.AddListener(OnNewGameClicked);
+            if (levelsButton != null) levelsButton.onClick.AddListener(OnLevelsClicked);
             if (settingsButton != null) settingsButton.onClick.AddListener(OnSettingsClicked);
         }
 
@@ -70,7 +74,7 @@ namespace BusJam
 
         public void RefreshLevelDisplay()
         {
-            int savedIndex = PlayerPrefs.GetInt(LevelManager.ProgressKey, 0);
+            int savedIndex = PlayerPrefs.GetInt(ProgressKey, 0);
             int displayLevel = savedIndex + 1;
 
             if (currentLevelLabel != null)
@@ -168,14 +172,7 @@ namespace BusJam
 
             Hide(instant: false, onComplete: () =>
             {
-                if (LevelManager.Instance != null)
-                {
-                    LevelManager.Instance.PlayCurrentLevel();
-                }
-                else
-                {
-                    EventBus<PlayRequestedEvent>.Publish(default);
-                }
+                EventBus<PlayRequestedEvent>.Publish(default);
             });
         }
 
@@ -185,17 +182,20 @@ namespace BusJam
 
             Hide(instant: false, onComplete: () =>
             {
-                if (LevelManager.Instance != null)
-                {
-                    LevelManager.Instance.StartNewGame();
-                }
-                else
-                {
-                    PlayerPrefs.SetInt(LevelManager.ProgressKey, 0);
-                    PlayerPrefs.Save();
-                    EventBus<PlayRequestedEvent>.Publish(default);
-                }
+                EventBus<NewGameRequestedEvent>.Publish(default);
             });
+        }
+
+        private void OnLevelsClicked()
+        {
+            if (LevelSelectPopupUI.Instance != null)
+            {
+                LevelSelectPopupUI.Instance.Show();
+            }
+            else if (UIManager.Instance != null)
+            {
+                UIManager.Instance.ShowLevelSelect();
+            }
         }
 
         private void OnSettingsClicked()

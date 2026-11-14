@@ -7,7 +7,7 @@ public static class LevelValidateTool
 {
     [MenuItem("Tools/Bus Jam/Level/Validate Selected Level", true)]
     private static bool CanValidateSelectedLevel() => Selection.activeObject is LevelDataSO;
-    
+
     [MenuItem("Tools/Bus Jam/Level/Analyze Selected Level (Solver)", true)]
     private static bool CanAnalyze() => Selection.activeObject is LevelDataSO;
 
@@ -64,14 +64,14 @@ public static class LevelValidateTool
         if (invalid == 0) Debug.Log(message);
         else Debug.LogError(message);
     }
-    
+
     [MenuItem("Tools/Bus Jam/Level/Analyze Selected Level (Solver)")]
     private static void AnalyzeSelected()
     {
         var level = Selection.activeObject as LevelDataSO;
         if (level == null) return;
 
-        var solver = new LevelSolver(level.Vehicles, level.PassengerColors, level.GridWidth, level.GridHeight);
+        var solver = new LevelSolver(level.Vehicles, level.PassengerColors, level.GridWidth, level.GridHeight, level.BlockedCells);
         int min = solver.MinSlots(SlotRules.MaxSlots, 300000);
         float win = solver.EstimateWinRate(SlotRules.DefaultUnlocked, 400, new System.Random(1));
 

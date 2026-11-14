@@ -13,72 +13,73 @@ MonoBehaviour:
   m_Name: Level_23
   m_EditorClassIdentifier: 
   levelNumber: 23
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 7
+  gridHeight: 8
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 6, y: 2}
+  - headCell: {x: 0, y: 1}
     kind: 0
-    color: 1
-    dir: 1
-  - headCell: {x: 6, y: 4}
+    color: 2
+    dir: 3
+  - headCell: {x: 5, y: 1}
     kind: 0
     color: 0
-    dir: 2
-  - headCell: {x: 2, y: 4}
-    kind: 1
-    color: 3
-    dir: 1
-  - headCell: {x: 5, y: 8}
-    kind: 0
-    color: 1
-    dir: 2
-  - headCell: {x: 6, y: 9}
-    kind: 1
-    color: 3
-    dir: 2
+    dir: 3
   - headCell: {x: 0, y: 6}
     kind: 0
     color: 1
     dir: 2
-  - headCell: {x: 2, y: 5}
+  - headCell: {x: 1, y: 7}
     kind: 0
-    color: 0
-    dir: 1
-  - headCell: {x: 2, y: 8}
+    color: 1
+    dir: 3
+  - headCell: {x: 6, y: 3}
     kind: 1
-    color: 3
-    dir: 1
-  - headCell: {x: 3, y: 11}
-    kind: 0
     color: 1
-    dir: 0
-  - headCell: {x: 5, y: 11}
-    kind: 0
-    color: 0
-    dir: 1
-  - headCell: {x: 4, y: 1}
-    kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 2, y: 2}
-    kind: 0
-    color: 0
-    dir: 1
-  - headCell: {x: 8, y: 7}
-    kind: 0
-    color: 3
-    dir: 1
-  - headCell: {x: 8, y: 0}
-    kind: 0
-    color: 3
-    dir: 1
-  - headCell: {x: 1, y: 10}
+    dir: 2
+  - headCell: {x: 5, y: 4}
     kind: 0
     color: 0
     dir: 2
-  passengerColors: 010000000100000003000000030000000100000001000000030000000300000001000000010000000100000001000000010000000100000000000000000000000300000003000000010000000100000003000000030000000300000003000000030000000300000000000000000000000000000000000000030000000300000003000000030000000100000001000000010000000100000003000000030000000000000000000000030000000300000001000000010000000000000000000000030000000300000003000000030000000000000000000000030000000300000000000000000000000100000001000000000000000000000000000000000000000000000000000000
-  minSlotsRequired: 3
-  blockedVehicles: 11
+  - headCell: {x: 1, y: 6}
+    kind: 1
+    color: 2
+    dir: 0
+  - headCell: {x: 4, y: 7}
+    kind: 0
+    color: 0
+    dir: 0
+  - headCell: {x: 1, y: 0}
+    kind: 0
+    color: 3
+    dir: 3
+  - headCell: {x: 3, y: 2}
+    kind: 0
+    color: 3
+    dir: 1
+  - headCell: {x: 3, y: 4}
+    kind: 0
+    color: 0
+    dir: 1
+  - headCell: {x: 3, y: 5}
+    kind: 0
+    color: 3
+    dir: 3
+  - headCell: {x: 4, y: 3}
+    kind: 1
+    color: 1
+    dir: 1
+  - headCell: {x: 5, y: 7}
+    kind: 0
+    color: 2
+    dir: 3
+  passengerColors: 0100000001000000030000000300000001000000010000000100000001000000020000000200000001000000010000000000000000000000030000000300000003000000030000000100000001000000020000000200000003000000030000000000000000000000020000000200000000000000000000000300000003000000000000000000000001000000010000000000000000000000030000000300000000000000000000000200000002000000010000000100000001000000010000000000000000000000020000000200000001000000010000000000000000000000020000000200000002000000020000000100000001000000
+  minSlotsRequired: 4
+  blockedVehicles: 10
   maxChainDepth: 4
-  estimatedWinRate: 0.475
+  estimatedWinRate: 0.43333334
+  rewardCoins: 90
+  blockedCells:
+  - {x: 2, y: 6}
+  - {x: 1, y: 2}
+  - {x: 1, y: 3}

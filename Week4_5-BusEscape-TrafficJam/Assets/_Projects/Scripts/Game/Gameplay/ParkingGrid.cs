@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -5,9 +6,9 @@ namespace BusJam
 {
     public class ParkingGrid : MonoBehaviour
     {
-        [Header("Grid Size")]
-        [SerializeField] private int width = 9;
-        [SerializeField] private int height = 9;
+        [Header("Fixed Board Dimensions")]
+        [SerializeField] private int fixedWidth = 9;
+        [SerializeField] private int fixedHeight = 9;
 
         [Header("Auto Fit To Camera")]
         [SerializeField] private bool autoFit = true;
@@ -25,33 +26,49 @@ namespace BusJam
         [SerializeField] private float manualCellSize = 1f;
 
         private float _cellSize = 1f;
+        private float _areaLeftX;
+        private float _areaRightX;
+        private float _roadAnchorTopY;
         private Vector3 _origin;
+
+        private int _activeWidth = 9;
+        private int _activeHeight = 10;
+        private Vector2Int _activeOffset = Vector2Int.zero;
 
         private readonly Dictionary<Vector2Int, VehicleController> _occupied
             = new Dictionary<Vector2Int, VehicleController>();
+        private readonly HashSet<Vector2Int> _blockedCells = new HashSet<Vector2Int>();
 
-        public int Width => width;
-        public int Height => height;
+        public event Action OnLayoutChanged;
+
+        public int Width => fixedWidth;
+        public int Height => fixedHeight;
+        public int ActiveLevelWidth => _activeWidth;
+        public int ActiveLevelHeight => _activeHeight;
+        public Vector2Int ActiveLevelOffset => _activeOffset;
+
         public float CellSize => _cellSize;
+        public float ReferenceSlotCellSize => _cellSize;
+        public float AreaLeftX => _areaLeftX;
+        public float AreaRightX => _areaRightX;
+        public float RoadAnchorTopY => _roadAnchorTopY;
+        public Vector3 Origin => _origin;
         public int RoadSide => roadSide;
         public int RoadBottom => roadBottom;
         public int RoadTop => roadTop;
+        public IReadOnlyCollection<Vector2Int> BlockedCells => _blockedCells;
 
         public float LaneLeft => -(roadSide + 1) * 0.5f;
-        public float LaneRight => width - 1 + (roadSide + 1) * 0.5f;
+        public float LaneRight => fixedWidth - 1 + (roadSide + 1) * 0.5f;
         public float LaneBottom => -(roadBottom + 1) * 0.5f;
-        public float LaneTop => height - 1 + (roadTop + 1) * 0.5f;
-
-        public float RoadLeftEdgeX => CellToWorld(new Vector2(-0.5f - roadSide, 0f)).x;
-        public float RoadRightEdgeX => CellToWorld(new Vector2(width - 0.5f + roadSide, 0f)).x;
-        public float RoadTopEdgeY => CellToWorld(new Vector2(0f, height - 0.5f + roadTop)).y;
+        public float LaneTop => fixedHeight - 1 + (roadTop + 1) * 0.5f;
 
         private void Awake() => Relayout();
         private void OnValidate() => Relayout();
 
         public void Relayout()
         {
-            if (width < 1 || height < 1) return;
+            if (fixedWidth < 1 || fixedHeight < 1) return;
 
             var c = cam != null ? cam : Camera.main;
             if (autoFit && c != null && c.orthographic)
@@ -59,65 +76,69 @@ namespace BusJam
                 float viewH = c.orthographicSize * 2f;
                 float viewW = viewH * c.aspect;
                 Vector3 cp = c.transform.position;
-                
+
                 var fitter = c.GetComponent<CameraFitter>();
                 float refH = (fitter != null && fitter.ReferenceViewHeight > 0f) ? fitter.ReferenceViewHeight : viewH;
-                
+
                 float viewTop = cp.y + viewH * 0.5f;
-                float left    = cp.x - viewW * 0.5f + viewW * sideMargin;
-                float right   = cp.x + viewW * 0.5f - viewW * sideMargin;
-                float top     = viewTop - refH * topReserve;
-                float bottom  = viewTop - refH + refH * bottomMargin;
+                _areaLeftX = cp.x - viewW * 0.5f + viewW * sideMargin;
+                _areaRightX = cp.x + viewW * 0.5f - viewW * sideMargin;
+                _roadAnchorTopY = viewTop - refH * topReserve;
+                float bottom = viewTop - refH + refH * bottomMargin;
 
-                int totalW = width + 2 * roadSide;
-                int totalH = height + roadBottom + roadTop;
+                int totalW = fixedWidth + 2 * roadSide;
+                int totalH = fixedHeight + roadBottom + roadTop;
 
-                _cellSize = Mathf.Min((right - left) / totalW, (top - bottom) / totalH);
+                _cellSize = Mathf.Min((_areaRightX - _areaLeftX) / totalW, (_roadAnchorTopY - bottom) / totalH);
 
-                float usedBottom = (top + bottom) * 0.5f - totalH * _cellSize * 0.5f;
-                float gridCenterY = usedBottom + (roadBottom + height * 0.5f) * _cellSize;
-                _origin = new Vector3((left + right) * 0.5f, gridCenterY, transform.position.z);
+                float usedBottom = (_roadAnchorTopY + bottom) * 0.5f - totalH * _cellSize * 0.5f;
+                float gridCenterY = usedBottom + (roadBottom + fixedHeight * 0.5f) * _cellSize;
+                _origin = new Vector3((_areaLeftX + _areaRightX) * 0.5f, gridCenterY, transform.position.z);
             }
             else
             {
                 _cellSize = manualCellSize;
                 _origin = transform.position;
+                _areaLeftX = _origin.x - (fixedWidth * 0.5f + roadSide) * _cellSize;
+                _areaRightX = _origin.x + (fixedWidth * 0.5f + roadSide) * _cellSize;
+                _roadAnchorTopY = _origin.y + (fixedHeight * 0.5f + roadTop) * _cellSize;
             }
+
+            OnLayoutChanged?.Invoke();
         }
 
-        public void Configure(int w, int h)
+        public void Configure(int levelW, int levelH, IReadOnlyList<Vector2Int> blocked = null)
         {
-            width = w;
-            height = h;
+            _activeWidth = Mathf.Clamp(levelW > 0 ? levelW : fixedWidth, 1, fixedWidth);
+            _activeHeight = Mathf.Clamp(levelH > 0 ? levelH : fixedHeight, 1, fixedHeight);
+
+            _activeOffset = new Vector2Int((fixedWidth - _activeWidth) / 2, (fixedHeight - _activeHeight) / 2);
+
             _occupied.Clear();
+            _blockedCells.Clear();
+            if (blocked != null)
+            {
+                for (int i = 0; i < blocked.Count; i++)
+                {
+                    Vector2Int boardCell = blocked[i] + _activeOffset;
+                    if (InBounds(boardCell)) _blockedCells.Add(boardCell);
+                }
+            }
+
             Relayout();
         }
 
-        public bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < width && c.y < height;
-
-        public bool IsRoadCell(Vector2Int c)
-        {
-            if (InBounds(c)) return false;
-            return c.x >= -roadSide && c.x <= width - 1 + roadSide
-                && c.y >= -roadBottom && c.y <= height - 1 + roadTop;
-        }
+        public bool InBounds(Vector2Int c) => c.x >= 0 && c.y >= 0 && c.x < fixedWidth && c.y < fixedHeight;
+        public bool IsBlockedCell(Vector2Int c) => _blockedCells.Contains(c);
 
         public Vector3 CellToWorld(Vector2 c)
         {
-            float x = (c.x - (width - 1) * 0.5f) * _cellSize;
-            float y = (c.y - (height - 1) * 0.5f) * _cellSize;
+            float x = (c.x - (fixedWidth - 1) * 0.5f) * _cellSize;
+            float y = (c.y - (fixedHeight - 1) * 0.5f) * _cellSize;
             return _origin + new Vector3(x, y, 0f);
         }
 
         public Vector3 CellToWorld(Vector2Int c) => CellToWorld((Vector2)c);
-
-        public Vector2Int WorldToCell(Vector3 p)
-        {
-            Vector3 local = p - _origin;
-            int x = Mathf.RoundToInt(local.x / _cellSize + (width - 1) * 0.5f);
-            int y = Mathf.RoundToInt(local.y / _cellSize + (height - 1) * 0.5f);
-            return new Vector2Int(x, y);
-        }
 
         public static void GetCells(Vector2Int head, VehicleKind kind, Direction dir, List<Vector2Int> result)
         {
@@ -127,13 +148,13 @@ namespace BusJam
                 result.Add(head + back * i);
         }
 
-        private static readonly List<Vector2Int> Temp = new List<Vector2Int>(3);
+        private static readonly List<Vector2Int> Temp = new List<Vector2Int>(4);
 
         public bool CanPlace(Vector2Int head, VehicleKind kind, Direction dir)
         {
             GetCells(head, kind, dir, Temp);
             foreach (var c in Temp)
-                if (!InBounds(c) || _occupied.ContainsKey(c)) return false;
+                if (!InBounds(c) || _blockedCells.Contains(c) || _occupied.ContainsKey(c)) return false;
             return true;
         }
 
@@ -167,6 +188,12 @@ namespace BusJam
 
             while (InBounds(c))
             {
+                if (_blockedCells.Contains(c))
+                {
+                    blocker = v;
+                    return free;
+                }
+
                 if (_occupied.TryGetValue(c, out var other) && other != v)
                 {
                     blocker = other;
@@ -176,25 +203,6 @@ namespace BusJam
                 c += step;
             }
             return free;
-        }
-
-        private void OnDrawGizmos()
-        {
-            Relayout();
-
-            Gizmos.color = new Color(1f, 1f, 1f, 0.5f);
-            for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
-                Gizmos.DrawWireCube(CellToWorld(new Vector2Int(x, y)), Vector3.one * _cellSize);
-
-            Gizmos.color = new Color(1f, 0.85f, 0.2f, 0.6f);
-            for (int x = -roadSide; x <= width - 1 + roadSide; x++)
-            for (int y = -roadBottom; y <= height - 1 + roadTop; y++)
-            {
-                var c = new Vector2Int(x, y);
-                if (!InBounds(c))
-                    Gizmos.DrawWireCube(CellToWorld(c), Vector3.one * _cellSize);
-            }
         }
     }
 }

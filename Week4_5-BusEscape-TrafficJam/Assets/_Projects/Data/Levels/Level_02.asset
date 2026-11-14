@@ -13,28 +13,26 @@ MonoBehaviour:
   m_Name: Level_02
   m_EditorClassIdentifier: 
   levelNumber: 2
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 3
+  gridHeight: 3
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 5, y: 5}
-    kind: 1
+  - headCell: {x: 0, y: 1}
+    kind: 0
     color: 1
     dir: 2
-  - headCell: {x: 7, y: 6}
+  - headCell: {x: 1, y: 1}
     kind: 0
     color: 0
     dir: 3
-  - headCell: {x: 7, y: 3}
-    kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 3, y: 7}
+  - headCell: {x: 2, y: 2}
     kind: 0
     color: 0
     dir: 1
-  passengerColors: 000000000000000000000000000000000000000000000000000000000000000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  passengerColors: 000000000000000000000000000000000000000000000000000000000000000001000000010000000100000001000000
   minSlotsRequired: 2
-  blockedVehicles: 3
-  maxChainDepth: 2
+  blockedVehicles: 1
+  maxChainDepth: 1
   estimatedWinRate: 1
+  rewardCoins: 50
+  blockedCells: []

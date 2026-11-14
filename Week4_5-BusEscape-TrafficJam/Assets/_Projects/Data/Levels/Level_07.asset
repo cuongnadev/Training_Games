@@ -13,40 +13,39 @@ MonoBehaviour:
   m_Name: Level_07
   m_EditorClassIdentifier: 
   levelNumber: 7
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 5
+  gridHeight: 5
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 1, y: 6}
+  - headCell: {x: 2, y: 2}
     kind: 0
-    color: 0
+    color: 3
     dir: 0
   - headCell: {x: 1, y: 2}
     kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 6, y: 4}
+    color: 0
+    dir: 1
+  - headCell: {x: 0, y: 0}
+    kind: 0
+    color: 3
+    dir: 2
+  - headCell: {x: 4, y: 4}
     kind: 0
     color: 0
     dir: 1
-  - headCell: {x: 5, y: 8}
-    kind: 0
-    color: 0
-    dir: 1
-  - headCell: {x: 4, y: 2}
-    kind: 0
-    color: 1
-    dir: 0
-  - headCell: {x: 6, y: 2}
-    kind: 0
-    color: 0
-    dir: 1
-  - headCell: {x: 3, y: 2}
+  - headCell: {x: 4, y: 3}
     kind: 0
     color: 1
     dir: 1
-  passengerColors: 01000000010000000100000000000000000000000000000000000000000000000000000001000000010000000100000001000000000000000000000000000000000000000000000001000000010000000100000001000000010000000000000000000000000000000000000000000000
+  - headCell: {x: 4, y: 0}
+    kind: 0
+    color: 1
+    dir: 1
+  passengerColors: 010000000300000003000000030000000300000000000000000000000000000000000000000000000000000000000000000000000100000001000000010000000100000001000000010000000100000003000000030000000300000003000000
   minSlotsRequired: 2
-  blockedVehicles: 3
-  maxChainDepth: 2
-  estimatedWinRate: 0.93333334
+  blockedVehicles: 1
+  maxChainDepth: 1
+  estimatedWinRate: 1
+  rewardCoins: 60
+  blockedCells:
+  - {x: 3, y: 1}

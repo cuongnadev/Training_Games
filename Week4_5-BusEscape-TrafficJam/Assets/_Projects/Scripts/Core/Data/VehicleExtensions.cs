@@ -11,12 +11,24 @@ namespace BusJam
                 [VehicleKind.Car] = new VehicleDefinition(2, 4),
                 [VehicleKind.Bus] = new VehicleDefinition(3, 6)
             };
-        
+
+        public static void Configure(IReadOnlyList<GameConfigSO.VehicleKindStat> stats)
+        {
+            if (stats == null || stats.Count == 0) return;
+
+            for (int i = 0; i < stats.Count; i++)
+            {
+                var s = stats[i];
+                Definitions[s.kind] = new VehicleDefinition(
+                    Math.Max(1, s.length),
+                    Math.Max(1, s.capacity));
+            }
+        }
+
         public static VehicleDefinition GetVehicleDefinition(this VehicleKind kind)
         {
             if (!Definitions.TryGetValue(kind, out var definition))
                 throw new ArgumentOutOfRangeException(nameof(kind));
-            
             return definition;
         }
 
@@ -33,7 +45,6 @@ namespace BusJam
                 if (pair.Value.Length == length)
                     return pair.Key;
             }
-            
             throw new ArgumentOutOfRangeException(nameof(length));
         }
     }

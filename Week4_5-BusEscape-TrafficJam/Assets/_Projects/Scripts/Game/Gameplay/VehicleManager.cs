@@ -93,8 +93,7 @@ namespace BusJam
             for (int i = 0; i < data.Count; i++)
             {
                 var vehicle = pool.Get(_vehicleContainer);
-
-                if (vehicle == null)   // VehiclePool chưa gán prefab (lỗi đã log ở Awake của pool)
+                if (vehicle == null)
                 {
                     ClearVehicles();
                     return false;
@@ -103,7 +102,10 @@ namespace BusJam
                 if (_spriteLibrary != null && vehicle.View != null)
                     vehicle.View.SetLibrary(_spriteLibrary);
 
-                if (!vehicle.Init(_grid, data[i], _slots))
+                var spawnData = data[i];
+                spawnData.headCell += _grid.ActiveLevelOffset;
+
+                if (!vehicle.Init(_grid, spawnData, _slots))
                 {
                     pool.Release(vehicle);
                     ClearVehicles();

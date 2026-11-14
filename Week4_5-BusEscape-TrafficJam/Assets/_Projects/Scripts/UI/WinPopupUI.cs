@@ -27,6 +27,8 @@ namespace BusJam
         private Tween _scaleTween;
         private bool _isClosing;
 
+        public void SetRewardCoins(int amount) => levelRewardCoins = Mathf.Max(0, amount);
+
         private void Awake()
         {
             _canvasGroup = GetComponent<CanvasGroup>();
@@ -43,13 +45,16 @@ namespace BusJam
 
             KillTweens();
 
+            float openDur = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.popupOpenDuration : openDuration;
+            float initScale = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.popupInitialScale : initialScale;
+
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
                 _canvasGroup.interactable = true;
                 _canvasGroup.blocksRaycasts = true;
 
-                _fadeTween = _canvasGroup.DOFade(1f, openDuration * 0.8f)
+                _fadeTween = _canvasGroup.DOFade(1f, openDur * 0.8f)
                     .SetEase(Ease.OutQuad)
                     .SetUpdate(true)
                     .SetLink(gameObject, LinkBehaviour.KillOnDisable);
@@ -57,11 +62,16 @@ namespace BusJam
 
             if (window != null)
             {
-                window.localScale = Vector3.one * initialScale;
-                _scaleTween = window.DOScale(1f, openDuration)
+                window.localScale = Vector3.one * initScale;
+                _scaleTween = window.DOScale(1f, openDur)
                     .SetEase(Ease.OutBack)
                     .SetUpdate(true)
-                    .SetLink(gameObject, LinkBehaviour.KillOnDisable);
+                    .SetLink(gameObject, LinkBehaviour.KillOnDisable)
+                    .OnComplete(TriggerRewardCoinFly);
+            }
+            else
+            {
+                TriggerRewardCoinFly();
             }
 
             if (rays != null)
@@ -78,6 +88,22 @@ namespace BusJam
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.Play(Sfx.Popup);
+            }
+        }
+
+        private void TriggerRewardCoinFly()
+        {
+            if (levelRewardCoins <= 0) return; 
+
+            Vector3 spawnWorldPos = rewardSpawnPoint != null ? rewardSpawnPoint.position : (window != null ? window.position : transform.position);
+
+            if (CoinFlyEffect.Instance != null && HUDController.Instance != null && HUDController.Instance.CoinTarget != null)
+            {
+                CoinFlyEffect.Instance.Play(spawnWorldPos, HUDController.Instance.CoinTarget, levelRewardCoins);
+            }
+            else
+            {
+                CurrencyService.Add(levelRewardCoins);
             }
         }
 
@@ -107,18 +133,21 @@ namespace BusJam
 
             KillTweens();
 
+            float closeDur = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.popupCloseDuration : closeDuration;
+            float initScale = GameConfigSO.Current != null ? GameConfigSO.Current.flowTiming.popupInitialScale : initialScale;
+
             Sequence closeSeq = DOTween.Sequence();
             closeSeq.SetUpdate(true);
             closeSeq.SetLink(gameObject, LinkBehaviour.KillOnDisable);
 
             if (_canvasGroup != null)
             {
-                closeSeq.Join(_canvasGroup.DOFade(0f, closeDuration).SetEase(Ease.InQuad));
+                closeSeq.Join(_canvasGroup.DOFade(0f, closeDur).SetEase(Ease.InQuad));
             }
 
             if (window != null)
             {
-                closeSeq.Join(window.DOScale(initialScale, closeDuration).SetEase(Ease.InBack));
+                closeSeq.Join(window.DOScale(initScale, closeDur).SetEase(Ease.InBack));
             }
 
             closeSeq.OnComplete(() =>
@@ -148,40 +177,11 @@ namespace BusJam
         public void OnNextLevelClicked()
         {
             if (_isClosing) return;
-            
-            Vector3 spawnWorldPos = rewardSpawnPoint != null ? rewardSpawnPoint.position : (window != null ? window.position : transform.position);
 
             Hide(instant: false, onComplete: () =>
             {
-                if (CoinFlyEffect.Instance != null && HUDController.Instance != null && HUDController.Instance.CoinTarget != null)
-                {
-                    CoinFlyEffect.Instance.Play(spawnWorldPos, HUDController.Instance.CoinTarget, levelRewardCoins, () =>
-                    {
-                        EventBus<NextLevelRequestedEvent>.Publish(default);
-                    });
-                }
-                else
-                {
-                    CurrencyService.Add(levelRewardCoins);
-                    EventBus<NextLevelRequestedEvent>.Publish(default);
-                }
+                EventBus<NextLevelRequestedEvent>.Publish(default);
             });
         }
-
-        public void OnReplayClicked()
-        {
-            if (_isClosing) return;
-
-            Hide(instant: false, onComplete: () =>
-            {
-                EventBus<RestartRequestedEvent>.Publish(default);
-            });
-        }
-
-        [ContextMenu("Test Show")]
-        private void TestShow() => Show();
-
-        [ContextMenu("Test Hide")]
-        private void TestHide() => Hide();
     }
 }

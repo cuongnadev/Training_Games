@@ -13,48 +13,52 @@ MonoBehaviour:
   m_Name: Level_12
   m_EditorClassIdentifier: 
   levelNumber: 12
-  gridWidth: 9
-  gridHeight: 12
+  gridWidth: 6
+  gridHeight: 7
   unlockedSlots: 6
   vehicles:
-  - headCell: {x: 2, y: 0}
-    kind: 0
-    color: 1
-    dir: 1
-  - headCell: {x: 2, y: 10}
-    kind: 0
-    color: 0
-    dir: 2
-  - headCell: {x: 1, y: 9}
-    kind: 0
-    color: 0
-    dir: 2
-  - headCell: {x: 4, y: 9}
+  - headCell: {x: 4, y: 2}
     kind: 1
     color: 0
     dir: 2
-  - headCell: {x: 1, y: 11}
+  - headCell: {x: 2, y: 2}
+    kind: 0
+    color: 0
+    dir: 1
+  - headCell: {x: 1, y: 5}
     kind: 0
     color: 3
-    dir: 1
-  - headCell: {x: 7, y: 3}
+    dir: 2
+  - headCell: {x: 3, y: 5}
     kind: 0
     color: 1
-    dir: 3
-  - headCell: {x: 6, y: 7}
+    dir: 0
+  - headCell: {x: 0, y: 5}
     kind: 0
     color: 3
     dir: 0
-  - headCell: {x: 5, y: 4}
-    kind: 1
+  - headCell: {x: 5, y: 1}
+    kind: 0
     color: 1
-    dir: 3
-  - headCell: {x: 7, y: 5}
-    kind: 1
+    dir: 0
+  - headCell: {x: 0, y: 2}
+    kind: 0
+    color: 0
+    dir: 2
+  - headCell: {x: 2, y: 0}
+    kind: 0
     color: 3
     dir: 2
-  passengerColors: 000000000000000000000000000000000100000001000000010000000100000000000000000000000000000000000000000000000000000000000000000000000300000003000000030000000300000001000000010000000100000001000000030000000300000003000000030000000100000001000000010000000100000000000000000000000100000001000000030000000300000003000000030000000300000003000000
-  minSlotsRequired: 2
-  blockedVehicles: 4
+  - headCell: {x: 2, y: 6}
+    kind: 1
+    color: 1
+    dir: 0
+  passengerColors: 01000000010000000100000001000000030000000300000003000000030000000000000000000000010000000100000003000000030000000300000003000000010000000100000001000000010000000300000003000000030000000300000000000000000000000000000000000000000000000000000000000000000000000100000001000000010000000100000000000000000000000000000000000000
+  minSlotsRequired: 3
+  blockedVehicles: 2
   maxChainDepth: 2
-  estimatedWinRate: 0.7083333
+  estimatedWinRate: 0.6666667
+  rewardCoins: 70
+  blockedCells:
+  - {x: 3, y: 1}
+  - {x: 2, y: 3}

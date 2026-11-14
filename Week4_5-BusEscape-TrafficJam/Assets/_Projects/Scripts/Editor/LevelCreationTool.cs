@@ -71,8 +71,8 @@ public sealed class LevelCreationTool : EditorWindow
                 if (result == null)
                 {
                     Debug.LogError($"[Bus Jam] Level {n}: Failed to generate {profile.vehicles} vehicles on a " +
-                                   $"{_settings.width}x{_settings.height} grid that is solvable with {_settings.slots} slots. " +
-                                   "Reduce the vehicle count / blocked vehicle count or increase the grid size.");
+                   $"{profile.width}x{profile.height} grid that is solvable with {_settings.slots} slots. " +
+                   "Reduce the vehicle count / blocked vehicle count or increase the grid size.");
                     continue;
                 }
 
@@ -116,10 +116,12 @@ public sealed class LevelCreationTool : EditorWindow
         }
 
         Undo.RecordObject(level, "Update level data");
-        level.Configure(number, _settings.width, _settings.height);
+        level.Configure(number, g.width, g.height, g.rewardCoins);
+        level.ReplaceBlockedCells(g.blockedCells);
         level.ReplaceVehicles(g.vehicles);
         level.ReplacePassengerColors(g.passengers);
         level.SetAnalysis(g.minSlots, g.blocked, g.chain, g.winRate);
+
         EditorUtility.SetDirty(level);
         return level;
     }
@@ -129,7 +131,8 @@ public sealed class LevelCreationTool : EditorWindow
         EnsureFolder(_outputFolder);
         string path = AssetDatabase.GenerateUniqueAssetPath($"{_outputFolder}/Level_{_fromLevel:00}.asset");
         var level = CreateInstance<LevelDataSO>();
-        level.Configure(_fromLevel, _settings.width, _settings.height);
+        var profile = LevelGenerator.ProfileAt(_settings, _fromLevel, _fromLevel, _fromLevel);
+        level.Configure(_fromLevel, profile.width, profile.height, _settings.rewardBaseCoins);
         AssetDatabase.CreateAsset(level, path);
         AssetDatabase.SaveAssets();
         Selection.activeObject = level;

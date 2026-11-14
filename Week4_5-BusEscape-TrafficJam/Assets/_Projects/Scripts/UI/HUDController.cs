@@ -122,10 +122,7 @@ namespace BusJam
 
         public void OnHomeClicked()
         {
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.SetState(GameState.Menu);
-            }
+            EventBus<GoHomeRequestedEvent>.Publish(default);
         }
 
         public void OnSettingsClicked()

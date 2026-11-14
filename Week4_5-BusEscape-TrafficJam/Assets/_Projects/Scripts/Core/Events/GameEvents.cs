@@ -9,7 +9,13 @@
     public readonly struct LevelLoadedEvent
     {
         public readonly int Level;
-        public LevelLoadedEvent(int level) { Level = level; }
+        public readonly int RewardCoins;
+
+        public LevelLoadedEvent(int level, int rewardCoins)
+        {
+            Level = level;
+            RewardCoins = rewardCoins;
+        }
     }
 
     public readonly struct PassengersChangedEvent
@@ -17,7 +23,7 @@
         public readonly int Remaining;
         public PassengersChangedEvent(int remaining) { Remaining = remaining; }
     }
-    
+
     public readonly struct LevelLostEvent
     {
         public readonly LoseReason Reason;
@@ -27,8 +33,20 @@
     public readonly struct SlotsChangedEvent
     {
         public readonly int Unlocked;
-        public SlotsChangedEvent(int unlocked) { Unlocked = unlocked; }
+        public readonly int NextCost;
+        public readonly bool CanUnlockMore;
+        public readonly bool JustPurchased;
+
+        public SlotsChangedEvent(int unlocked, int nextCost, bool canUnlockMore, bool justPurchased)
+        {
+            Unlocked = unlocked;
+            NextCost = nextCost;
+            CanUnlockMore = canUnlockMore;
+            JustPurchased = justPurchased;
+        }
     }
+
+    public readonly struct NoFreeSlotTriggeredEvent { }
 
     public readonly struct SettingsChangedEvent
     {
@@ -51,12 +69,20 @@
 
         public CoinsChangedEvent(int total, int delta)
         {
-            Total = total; 
+            Total = total;
             Delta = delta;
         }
     }
-    
+
     public readonly struct PlayRequestedEvent { }
+    public readonly struct NewGameRequestedEvent { }
+    public readonly struct GoHomeRequestedEvent { }
     public readonly struct RestartRequestedEvent { }
     public readonly struct NextLevelRequestedEvent { }
+
+    public readonly struct SelectLevelRequestedEvent
+    {
+        public readonly int LevelIndex;
+        public SelectLevelRequestedEvent(int levelIndex) { LevelIndex = levelIndex; }
+    }
 }
